@@ -1,0 +1,12 @@
+CV FICTIF — DÉMONSTRATION TALENT ENGINE
+Ce document est une fixture de développement, pas un vrai CV.
+
+Awa Ndiaye
+awa.ndiaye@example.com
+Dakar, Sénégal
+
+Formation : Licence informatique — établissement fictif
+Compétences : Python, FastAPI, PostgreSQL, Git
+Expérience : 12 mois de projets personnels et contributions backend
+Projet : API de gestion de candidatures avec validation et tests
+Disponibilité : immédiatement
