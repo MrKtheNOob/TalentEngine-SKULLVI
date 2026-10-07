@@ -47,3 +47,12 @@
 - Additional selective opportunity types beyond internships.
 
 Optional ideas must not silently become MVP requirements.
+
+
+## Approved program overview update
+
+Programs have no Open/Closed lifecycle. Overview exposes editable name and description and application processing counts: total, needs review, pending/processing, and failed. Program attribute edits do not trigger scoring. Application processing statuses remain separate from candidate selection.
+
+
+## Approved configuration workflow
+Configuration remains one JSON document per program. Saving prompts the reviewer to choose save-only or save-and-rescore; rescoring can also be requested separately against saved criteria. Saving alone does not trigger potentially expensive LLM calls. Until the scoring engine exists, rescore requests report unavailability and preserve saved configuration and existing scores.

@@ -1,3 +1,5 @@
+import ConfigurationConfirmationDialog from "./ConfigurationConfirmationDialog";
+import type { Result } from "../../types/result";
 import ConfigurationSidebar from "./ConfigurationSidebar";
 import { useState, type SubmitEvent } from "react";
 import { Plus } from "lucide-react";
@@ -10,13 +12,18 @@ interface ProgramConfigurationFormProps {
   configuration: ProgramConfiguration;
   onConfigurationChange: (configuration: ProgramConfiguration) => void;
   savedConfiguration: ProgramConfiguration | null;
-  onSave: (configuration: ProgramConfiguration) => void;
+  onSave: (configuration: ProgramConfiguration) => Promise<Result<ProgramConfiguration>>;
+  onRescore: () => Promise<Result<{ message: string }>>;
 }
 
-export default function ProgramConfigurationForm({ programId, configuration, onConfigurationChange, savedConfiguration, onSave }: ProgramConfigurationFormProps) {
+export default function ProgramConfigurationForm({ programId, configuration, onConfigurationChange, savedConfiguration, onSave, onRescore }: ProgramConfigurationFormProps) {
   const { criteria } = configuration;
   const [errors, setErrors] = useState<string[]>([]);
   const [savedMessage, setSavedMessage] = useState("");
+  const [confirmation, setConfirmation] = useState<"save" | "rescore" | null>(null);
+  const [pendingConfiguration, setPendingConfiguration] = useState<ProgramConfiguration>();
+  const [pending, setPending] = useState(false);
+  const dirty = JSON.stringify(configuration) !== JSON.stringify(savedConfiguration ?? { programId, criteria: [] });
 
   function updateCriteria(nextCriteria: ScoringCriterion[]) {
     onConfigurationChange({ ...configuration, criteria: nextCriteria });
@@ -66,17 +73,43 @@ export default function ProgramConfigurationForm({ programId, configuration, onC
     setErrors(validationErrors);
     if (validationErrors.length > 0) return;
     const cleanedConfiguration = { programId, criteria: cleanedCriteria };
-    onSave(cleanedConfiguration);
-    onConfigurationChange(cleanedConfiguration);
-    setSavedMessage("Configuration enregistrée en mémoire pour cette démonstration. Elle sera perdue au rechargement.");
+    setPendingConfiguration(cleanedConfiguration);
+    setConfirmation("save");
+  }
+
+  async function confirm(rescore: boolean) {
+    setPending(true);
+    setErrors([]);
+    setSavedMessage("");
+    if (confirmation === "save" && pendingConfiguration) {
+      const result = await onSave(pendingConfiguration);
+      if (result.error) {
+        setErrors([result.error.message]);
+        setPending(false);
+        setConfirmation(null);
+        return;
+      }
+      onConfigurationChange(result.data);
+      setSavedMessage("Configuration enregistrée. Les scores existants n’ont pas été recalculés.");
+    }
+    if (rescore) {
+      const result = await onRescore();
+      if (result.error) setErrors([result.error.message]);
+      else setSavedMessage(result.data.message);
+    }
+    setPending(false);
+    setConfirmation(null);
   }
 
   return (
+    <>
+    {confirmation && <ConfigurationConfirmationDialog mode={confirmation} pending={pending} onClose={() => setConfirmation(null)} onConfirm={(rescore) => { void confirm(rescore); }} />}
     <form onSubmit={saveConfiguration} className="grid items-start gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
       <section className="min-w-0 rounded-lg border border-slate-200 bg-white p-5">
         <h2 className="text-lg font-semibold">Configuration du programme</h2>
         <p className="mb-5 mt-2 text-sm leading-6 text-slate-500">Définissez les critères et leur priorité pour l’évaluation des candidatures.</p>
         
+        <fieldset disabled={pending}>
         <h3 className="mb-4 font-semibold">Critères de scoring</h3>
         <div className="space-y-4">
           {criteria.map((criterion, index) => (
@@ -93,12 +126,18 @@ export default function ProgramConfigurationForm({ programId, configuration, onC
             <Plus size={16} aria-hidden="true" /> Ajouter un critère
           </button>
           <div className="flex flex-wrap gap-3">
-            <button type="button" onClick={() => { if (savedConfiguration) onConfigurationChange(structuredClone(savedConfiguration)); setErrors([]); setSavedMessage(""); }} className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50">Annuler les modifications</button>
-            <Button type="submit">Enregistrer</Button>
+            <button type="button" onClick={() => { onConfigurationChange(structuredClone(savedConfiguration ?? { programId, criteria: [] })); setErrors([]); setSavedMessage(""); }} className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50">Annuler les modifications</button>
+            <Button type="submit" disabled={!dirty}>Enregistrer</Button>
           </div>
+        </div>
+        </fieldset>
+        <div className="mt-5 border-t border-slate-200 pt-5">
+          <button type="button" disabled={pending || dirty || !savedConfiguration?.criteria.length} onClick={() => setConfirmation("rescore")} className="rounded-lg border border-blue-200 px-4 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50">Réévaluer les candidatures</button>
+          <p className="mt-2 text-xs text-slate-500">Utilise la configuration enregistrée. Enregistrez vos modifications avant de relancer. Les scores existants restent inchangés jusqu’à une réévaluation réussie.</p>
         </div>
       </section>
       <ConfigurationSidebar configuration={configuration} savedConfiguration={savedConfiguration} />
     </form>
+    </>
   );
 }

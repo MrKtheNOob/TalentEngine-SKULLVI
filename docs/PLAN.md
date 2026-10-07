@@ -1,44 +1,27 @@
 # Implementation Plan
 
 ## Current objective
+Complete the application processing flow behind the API-backed interface.
 
-Align the scoring-only frontend and documentation, then define backend contracts for LLM normalization, criterion inference, and weighted aggregation.
+## Completed milestone
+Program creation/editing, Overview counts, application tables/detail, and configuration JSON persistence use Axios services through hooks. Table filters/sorting run on the API. Configuration save/rescore confirmation dialogs are implemented. No mock extraction or scoring data is mixed with live records.
 
 ## Next milestone
-
-Agree on typed criterion values, individual score scales, and priority-to-weight conversion before backend integration.
+Agree on normalization output, criterion score scale, and priority-to-weight conversion, then process one real submission end to end.
 
 ## Tasks
-
-- [ ] Understand and structure the requirements.
-- [ ] Identify the minimum functional solution.
-- [ ] Define the domain model.
-- [ ] Define and approve qualification/scoring behavior.
-- [ ] Implement incrementally.
-- [ ] Add tests for important rules and edge cases.
-- [ ] Document setup, usage, design choices, and limitations.
-
-## Deferred ideas
-
-Keep optional enhancements here rather than automatically implementing them.
-
-- External tool integrations beyond simple JSON or CSV import.
-- Full reviewer workflow with statuses, notes, and collaboration.
-
-## Open decisions
-
-- Priority-tier conversion and score aggregation.
-- Missing/ambiguous extracted-value handling and the human correction workflow.
-- Backend configuration contract, normalized application schema, and CV ingestion.
-
-Processing flow: raw submission → LLM normalization → validation → LLM criterion inference → weighted aggregation → ranking → human review.
-
-The frontend still uses demo data; no normalization or scoring engine is implemented.
+- [ ] Finalize application source/CV and extracted-field schemas.
+- [ ] Approve criterion inference and weighted aggregation behavior.
+- [ ] Implement normalization, validation, scoring, and explicit rescoring.
+- [ ] Add JSON/CSV intake and realistic failure tests.
+- [ ] Document setup and remaining limitations.
 
 ## Backend reminders
+- Return field-specific errors for criterion type/option mismatches; do not silently coerce invalid values.
+- One configuration per program, no versions. Save does not automatically rescore: the reviewer chooses whether to rescore after saving or uses the separate button.
+- Existing scores may reflect earlier criteria until successful reassessment; settle how to mark stale scores when the engine exists.
+- Rescore currently returns 501 honestly; it does not queue work or erase scores.
+- Human correction of extracted fields remains to design.
 
-- Validate each extracted criterion value against its configured type; return a field-specific error for mismatches. Do not silently coerce invalid values.
-- Revisit program attributes beyond name/description (for example lifecycle/status and dates) before defining the production creation contract.
-- Intake will accept JSON/CSV files; decide parsing/mapping and CV references later.
-- Configuration save triggers reassessment of all program applications, without versions. Decide stale-score display and failure handling.
-- Human correction of flagged normalized fields is a recommendation, not yet an approved implementation.
+## Deferred ideas
+External integrations and full reviewer collaboration workflows.

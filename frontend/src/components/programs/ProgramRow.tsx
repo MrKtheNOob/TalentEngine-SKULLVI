@@ -1,6 +1,5 @@
 import type { Program } from "../../types/program";
 import { Link } from "react-router-dom";
-import ProgramStatusBadge from "./ProgramStatusBadge";
 
 const dateFormatter = new Intl.DateTimeFormat("fr-FR", {
   day: "numeric",
@@ -18,9 +17,6 @@ export default function ProgramRow({ program }: ProgramRowProps) {
   return (
     <tr className="transition-colors hover:bg-slate-50">
       <td className="px-6 py-6 font-medium text-slate-950">{program.name}</td>
-      <td className="px-6 py-6">
-        <ProgramStatusBadge status={program.status} />
-      </td>
       <td className="px-6 py-6 text-right tabular-nums text-slate-600">
         {program.candidates}
       </td>

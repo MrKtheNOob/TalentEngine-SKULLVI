@@ -16,7 +16,8 @@ export interface Application {
   status: ProcessingStatus;
   appliedAt: string;
   cvUrl: string | null;
-  warnings: string[];
+  warnings?: string[];
+  rank?: number | null;
 }
 
 export interface NormalizedApplication {
@@ -43,4 +44,16 @@ export interface ApplicationDetail {
   normalization: string;
   evaluationSummary: string | null;
   breakdown: CriterionAssessment[];
+}
+
+// Current backend response; extraction and assessment detail are not persisted yet.
+export interface ProgramApplicationResponse {
+  id: number;
+  program_id: number;
+  candidate_id: number;
+  candidate: import("./candidate").CandidateResponse;
+  status: ProcessingStatus;
+  score: number | null;
+  rank: number | null;
+  created_at: string;
 }

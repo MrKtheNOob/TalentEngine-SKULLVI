@@ -473,4 +473,105 @@ Use PostgreSQL through the scaffold's SQLAlchemy dependency. The shared Database
 The API should not accept work without its required database.
 
 ### Consequences / limitations
-DATABASE_URL must be supplied. The implementation uses async Psycopg, a bounded SELECT 1 startup check, and a session factory. It does not create databases or tables. Six mocked tests pass; live database connectivity still needs verification.
+DATABASE_URL must be supplied. The implementation uses async Psycopg, a bounded SELECT 1 startup check, and a session factory. It does not create the database. Alembic manages tables as described in D-020. Live connectivity was verified during migration setup and seeding.
+
+## D-019 — SQLAlchemy table creation without Alembic
+
+Superseded by D-020 after the user approved Alembic.
+
+### Context
+The model tables were not being created. The user explicitly chose SQLAlchemy without Alembic.
+
+### Decision
+Create missing tables with `Base.metadata.create_all()` during API startup, after checking connectivity and before accepting requests.
+
+### Rationale
+Keep initial schema setup small and use the existing SQLAlchemy dependency.
+
+### Consequences / limitations
+Table creation failure aborts startup. This creates missing tables but does not migrate existing columns or constraints; those changes require explicit SQL. The PostgreSQL database must already exist.
+
+## D-020 — Alembic migrations
+
+### Context
+The user reviewed the documentation and approved Alembic for generating migrations, then requested database seeding.
+
+### Options considered
+SQLAlchemy `create_all()` creates missing tables but does not evolve existing ones. Alembic generates reviewable schema-change scripts.
+
+### Decision
+Use Alembic with the existing SQLAlchemy models and DATABASE_URL. Remove startup `create_all()`. Generate, review, and apply migrations explicitly. Provide a repeatable demo seed script.
+
+### Rationale
+Support schema changes while keeping startup and schema management separate.
+
+### Consequences / limitations
+Generated migrations need review, especially renames. The existing database matched the initial model schema and was stamped at revision 0001. `alembic check` passed. Seeding created four programs, seven candidates, and seven received applications; a second run created none. Missing email, scoring, and extraction data remain schema gaps.
+
+
+## D-021 — Program Overview without lifecycle status
+
+### Context
+The user requested Overview with editable program attributes and agreed Open/Closed has no useful behavior in this application.
+
+### Options considered
+Retain a display-only lifecycle, or remove it and focus on application processing progress.
+
+### Decision
+Remove program Open/Closed status, its filters and KPIs, and backend `is_active`. Enable Overview with editable name/description and counts for total applications, review, pending/processing, and failures. Application processing statuses remain.
+
+### Rationale
+Expose useful program information without inventing an intake lifecycle. Attribute edits do not affect scoring configuration.
+
+### Consequences / limitations
+Frontend editing uses the existing demo store until API integration. Backend read/update endpoints exist, and migration 0002 removes the status column. Historical decisions mentioning Active/Closed are superseded here. Application model/migration drift predates this change and remains to resolve.
+
+
+## D-022 — Explicit Axios services and Result responses
+
+### Context
+The user specified the frontend API integration style and asked for endpoints and schemas for current screens.
+
+### Decision
+Use Axios, one service file per model, and explicit functions returning Promise<Result<T>> with data/error fields. Hooks own data access; components remain presentation code. Put backend Pydantic schemas in module schemas.py files.
+
+### Rationale
+Keep API calls easy to find and replace without introducing service classes or generic request patterns.
+
+### Consequences / limitations
+Services preserve Axios errors, including field-validation details. Screen hooks still use mocks until integration. Application endpoints expose existing persisted fields; extraction/warnings and configuration reassessment are not fabricated.
+
+
+## D-023 — Configuration module and explicit rescoring
+
+### Context
+The user requested a nested configuration module, JSON persistence, confirmation dialogs, and control over potentially costly rescoring.
+
+### Options considered
+Automatic rescoring on every save, or a reviewer-controlled save-and-rescore choice plus a separate rescore action.
+
+### Decision
+Keep the program's single JSON configuration, owned by programs/configuration. Confirm saves with the shared Dialog and let reviewers choose save-only or save-and-rescore. Provide a separate rescore button. All frontend data-access hooks use Axios model services; table filters run on the API.
+
+### Rationale
+Persist the existing configuration shape and give the reviewer explicit control over LLM costs.
+
+### Consequences / limitations
+This supersedes earlier automatic-rescoring instructions. The engine is not implemented: rescore returns 501, leaving saved config and existing scores intact. Scores can reflect prior criteria until reassessment. Candidate details use a single scoped endpoint; missing extraction data remains unavailable. Tests verify JSON validation, persistence, global ranking under filters, and ambiguous application selection.
+
+## D-024 — Injected program service
+
+### Context
+The programs API mixed routing with queries, ranking, and persistence.
+
+### Options considered
+Keep everything in route handlers, extract functions, or use a service class; a separate repository would add another layer.
+
+### Decision
+Use a `ProgramService` class initialized with the request's database session and injected into routes through FastAPI dependencies. Keep the existing program-scoped operations and API contracts together for now.
+
+### Rationale
+The user requested the class and database injection. Routes delegate to explicit methods without a repository layer.
+
+### Consequences / limitations
+Behavior remains unchanged. The service still uses existing HTTP exceptions; it is not a framework-independent domain layer. Configuration remains in its existing module.

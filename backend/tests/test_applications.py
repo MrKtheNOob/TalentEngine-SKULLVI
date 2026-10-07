@@ -1,0 +1,120 @@
+from programs.service import ProgramService
+from datetime import datetime, timezone
+import unittest
+
+from fastapi import HTTPException
+from sqlalchemy import create_engine, MetaData, text, DefaultClause
+from sqlalchemy.orm import Session
+from models import Base, Candidate, Program, ProgramApplication
+from programs.api import get_program_applications, get_program_application, create_program
+from programs.schemas import ProgramCreate, ProgramResponse
+from program_applications.schemas import ProgramApplicationResponse
+
+
+class QuerySession:
+    def __init__(self, session):
+        self.session = session
+
+    async def execute(self, query):
+        return self.session.execute(query)
+
+    def add(self, model):
+        self.session.add(model)
+
+    async def commit(self):
+        self.session.commit()
+
+    async def refresh(self, model):
+        self.session.refresh(model)
+
+
+class ApplicationsQueryTests(unittest.IsolatedAsyncioTestCase):
+    def setUp(self):
+        self.engine = create_engine('sqlite://')
+        metadata = MetaData()
+        for table in Base.metadata.sorted_tables:
+            table.to_metadata(metadata)
+        # Adapt only PostgreSQL defaults for this isolated query test database.
+        for table in metadata.tables.values():
+            for column in table.columns:
+                if column.server_default is not None:
+                    default = str(column.server_default.arg)
+                    if default == 'now()':
+                        column.server_default = DefaultClause(text('CURRENT_TIMESTAMP'))
+                    elif '::json' in default:
+                        column.server_default = DefaultClause(text("'{}'"))
+        metadata.create_all(self.engine)
+        self.session = Session(self.engine, expire_on_commit=False)
+        self.session.add_all([Program(id=1, name='Backend'), Program(id=2, name='Frontend')])
+        for candidate_id, name in [(1, 'Élodie'), (2, 'Ali'), (3, 'Fatou')]:
+            self.session.add(Candidate(id=candidate_id, name=name, email=f'{candidate_id}@example.com'))
+        self.session.flush()
+        for app_id, program_id, candidate_id, score, status, day in [
+            (1, 1, 1, 80, 'ready', 1),
+            (2, 1, 2, 80, 'needs_review', 2),
+            (3, 1, 3, None, 'received', 3),
+            (4, 2, 1, 99, 'ready', 4),
+        ]:
+            self.session.add(ProgramApplication(id=app_id, program_id=program_id,
+                candidate_id=candidate_id, score=score, status=status,
+                created_at=datetime(2026, 10, day, tzinfo=timezone.utc)))
+        self.session.commit()
+        self.db = QuerySession(self.session)
+
+    def tearDown(self):
+        self.session.close()
+        self.engine.dispose()
+
+    async def rows(self, **params):
+        return await get_program_applications(1, service=ProgramService(self.db), **params)
+
+    async def test_score_order_ties_null_scores_and_program_scope(self):
+        rows = await self.rows()
+        self.assertEqual([row.id for row in rows], [1, 2, 3])
+        for row in rows:
+            ProgramApplicationResponse.model_validate(row)
+
+    async def test_recent_order(self):
+        self.assertEqual([row.id for row in await self.rows(sort='recent')], [3, 2, 1])
+
+    async def test_processing_filter_and_combined_search(self):
+        self.assertEqual([row.id for row in await self.rows(status='needs_review', search='ALI')], [2])
+        self.assertEqual(await self.rows(status='failed'), [])
+        self.assertEqual([row.id for row in await self.rows(search=' elodie ')], [1])
+        self.assertEqual([row.id for row in await self.rows(search='2@example.com')], [2])
+
+    async def test_detail_is_scoped_to_program(self):
+        detail = await get_program_application(1, 1, ProgramService(self.db))
+        self.assertEqual(detail.candidate.name, 'Élodie')
+        for program_id, application_id in [(1, 4), (1, 999), (999, 1)]:
+            with self.assertRaises(HTTPException) as error:
+                await get_program_application(program_id, application_id, ProgramService(self.db))
+            self.assertEqual(error.exception.status_code, 404)
+
+    async def test_create_program_persists_and_returns_zero_count(self):
+        response = await create_program(ProgramCreate(name='  New program  '), ProgramService(self.db))
+        program = ProgramResponse.model_validate(response)
+        self.assertEqual(program.name, 'New program')
+        self.assertEqual(program.candidates_count, 0)
+        self.assertEqual(self.session.get(Program, program.id).name, 'New program')
+
+    async def test_filter_keeps_global_rank(self):
+        rows = await self.rows(status='needs_review')
+        self.assertEqual([(row.id, row.rank) for row in rows], [(2, 2)])
+        rows = await self.rows(search='Fatou')
+        self.assertEqual(rows[0].rank, None)
+
+    async def test_candidate_detail_requires_specific_application_when_ambiguous(self):
+        from programs.api import get_candidate_detail
+        detail = await get_candidate_detail(1, 1, service=ProgramService(self.db))
+        self.assertEqual(detail['application'].id, 1)
+        self.session.add(ProgramApplication(id=5, program_id=1, candidate_id=1, score=40, status='ready'))
+        self.session.commit()
+        with self.assertRaises(HTTPException) as error:
+            await get_candidate_detail(1, 1, service=ProgramService(self.db))
+        self.assertEqual(error.exception.status_code, 409)
+        selected = await get_candidate_detail(1, 1, application_id=1, service=ProgramService(self.db))
+        self.assertEqual(selected['application'].id, 1)
+        with self.assertRaises(HTTPException) as error:
+            await get_candidate_detail(1, 2, application_id=1, service=ProgramService(self.db))
+        self.assertEqual(error.exception.status_code, 404)

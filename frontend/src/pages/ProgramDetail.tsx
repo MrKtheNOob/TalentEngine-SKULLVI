@@ -1,3 +1,6 @@
+import DataStatus from "../components/DataStatus";
+import ProgramOverviewTab from "../components/programs/ProgramOverviewTab";
+import type { ProgramTab } from "../components/programs/ProgramTabs";
 import ProgramCandidatesTab from "../components/programs/ProgramCandidatesTab";
 import { useState } from "react";
 import ProgramConfigurationForm from "../components/configuration/ProgramConfigurationForm";
@@ -9,10 +12,12 @@ import { useProgram } from "../hooks/usePrograms";
 import { useProgramConfiguration } from "../hooks/useProgramConfiguration";
 
 export default function ProgramDetail() {
-  const [activeSection, setActiveSection] = useState<"candidates" | "configuration">("candidates");
+  const [activeSection, setActiveSection] = useState<ProgramTab>("overview");
   const { programId } = useParams();
-  const program = useProgram(programId);
-  const { configuration, savedConfiguration, updateConfiguration, saveConfiguration } = useProgramConfiguration(Number(programId));
+  const { program, loading, error, notFound, updateProgram } = useProgram(programId);
+  const { configuration, savedConfiguration, updateConfiguration, saveConfiguration, rescoreApplications, loading: configurationLoading, error: configurationError } = useProgramConfiguration(Number(programId));
+
+  if (loading || (error && !notFound)) return <DataStatus loading={loading} error={error} />;
 
   if (!program) {
     return (
@@ -31,17 +36,23 @@ export default function ProgramDetail() {
       <ProgramDetailHeader program={program} />
       <ProgramTabs activeSection={activeSection} onSelect={setActiveSection} />
       <div className="mt-5">
-        {activeSection === "candidates" ? (
-          <ProgramCandidatesTab key={program.id} programId={program.id} configuration={savedConfiguration} />
+        {activeSection === "overview" ? (
+          <ProgramOverviewTab key={program.id} program={program} onSave={updateProgram} />
+        ) : activeSection === "candidates" ? (
+          <ProgramCandidatesTab key={program.id} programId={program.id} totalApplications={program.candidates} configuration={savedConfiguration} />
         ) : (
-          <ProgramConfigurationForm
+          <div>
+          <DataStatus loading={configurationLoading} error={configurationError} />
+          {!configurationLoading && !configurationError && <ProgramConfigurationForm
             key={program.id}
             programId={program.id}
             configuration={configuration}
             onConfigurationChange={updateConfiguration}
             savedConfiguration={savedConfiguration}
             onSave={saveConfiguration}
-          />
+            onRescore={rescoreApplications}
+          />}
+          </div>
         )}
       </div>
     </>

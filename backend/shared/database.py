@@ -1,17 +1,12 @@
 import asyncio
 import os
-
 from sqlalchemy import make_url, text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
-
+from collections.abc import AsyncGenerator
 
 class DatabaseService:
-    """Own the PostgreSQL connection pool and session factory."""
-
-    def __init__(self, database_url: str | None = None) -> None:
-        if database_url is None:
-            database_url = os.environ.get("DATABASE_URL", "")
-        database_url = database_url.strip()
+    def __init__(self) -> None:
+        database_url = os.environ.get("DATABASE_URL", "")
         if not database_url:
             raise RuntimeError("DATABASE_URL is required to start the API.")
         try:
@@ -20,6 +15,7 @@ class DatabaseService:
             raise RuntimeError("DATABASE_URL must be a valid PostgreSQL URL.") from None
         if url.drivername not in {"postgres", "postgresql", "postgresql+psycopg"}:
             raise RuntimeError("DATABASE_URL must use PostgreSQL with the psycopg driver.")
+        
         self.engine: AsyncEngine = create_async_engine(
             url.set(drivername="postgresql+psycopg"),
             pool_pre_ping=True,
@@ -36,6 +32,10 @@ class DatabaseService:
         except Exception:
             # Avoid exposing credentials or connection details in startup tracebacks.
             raise RuntimeError("PostgreSQL startup check failed; API startup aborted.") from None
-
+    
+    async def get_db(self) -> AsyncGenerator[AsyncSession, None]:
+        async with self.sessions() as session:
+            yield session
+   
     async def close(self) -> None:
         await self.engine.dispose()

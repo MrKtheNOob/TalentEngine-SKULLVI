@@ -1,4 +1,5 @@
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
+import DataStatus from "../components/DataStatus";
 import BackLink from "../components/BackLink";
 import CandidateProfileHeader from "../components/candidates/CandidateProfileHeader";
 import CandidateEvaluationSummary from "../components/candidates/CandidateEvaluationSummary";
@@ -9,12 +10,16 @@ import { useCandidateDetail } from "../hooks/useCandidateDetail";
 
 export default function CandidateDetail() {
   const { programId, candidateId } = useParams();
-  const { application, program, detail } = useCandidateDetail(
+  const [searchParams] = useSearchParams();
+  const { application, program, loading, error } = useCandidateDetail(
     programId,
     candidateId,
+    searchParams.get("applicationId"),
   );
 
-  if (!application || !program || !detail) {
+  if (loading || error) return <DataStatus loading={loading} error={error} />;
+
+  if (!application || !program) {
     return (
       <section className="rounded-lg border border-slate-200 bg-white p-6">
         <h1 className="mb-4 text-2xl font-semibold">Candidature introuvable</h1>
@@ -28,21 +33,20 @@ export default function CandidateDetail() {
       <CandidateProfileHeader
         application={application}
         program={program}
-        normalized={detail.normalized}
+        normalized={null}
       />
      
-      <CandidateEvaluationSummary application={application} detail={detail} />
+      <CandidateEvaluationSummary application={application} />
       <div className="mt-5 grid items-start gap-5 lg:grid-cols-2">
         <div className="space-y-5">
-          <CandidateScoreBreakdown breakdown={detail.breakdown} />
+          <CandidateScoreBreakdown breakdown={[]} />
           <CandidateProcessingDetails
             application={application}
-            detail={detail}
           />
         </div>
         <CandidateApplicationDetails
           application={application}
-          normalized={detail.normalized}
+          normalized={null}
         />
       </div>
     </>

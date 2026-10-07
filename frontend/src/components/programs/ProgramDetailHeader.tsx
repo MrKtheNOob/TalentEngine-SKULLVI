@@ -1,5 +1,4 @@
 import BackLink from "../BackLink";
-import ProgramStatusBadge from "./ProgramStatusBadge";
 import type { Program } from "../../types/program";
 
 export default function ProgramDetailHeader({ program }: { program: Program }) {
@@ -10,7 +9,6 @@ export default function ProgramDetailHeader({ program }: { program: Program }) {
           <h1 className="text-3xl font-semibold tracking-tight">
             {program.name}
           </h1>
-          <ProgramStatusBadge status={program.status} />
         </div>
         <p className="mt-2 text-slate-500">
           {program.description}
