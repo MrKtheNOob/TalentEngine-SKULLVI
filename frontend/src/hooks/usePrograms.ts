@@ -46,21 +46,24 @@ export function usePrograms(filters: programService.ProgramFilters = {}, refresh
   };
 }
 
-export function useProgram(programId: string | undefined) {
+export function useProgram(programId: string | undefined, refreshKey = 0) {
   const id = Number(programId);
   const validId = Number.isSafeInteger(id) && id > 0;
   const [response, setResponse] = useState<{ id: number; result: Result<Program> }>();
 
   useEffect(() => {
     let active = true;
-    if (validId) programService.getProgram(id).then((result) => {
+    async function load() {
+      if (!validId) return;
+      const result = await programService.getProgram(id);
       if (!active) return;
       setResponse({ id, result: result.error
         ? { data: null, error: result.error }
         : { data: toProgram(result.data), error: null } });
-    });
+    }
+    void load();
     return () => { active = false; };
-  }, [id, validId]);
+  }, [id, validId, refreshKey]);
 
   async function updateProgram(attributes: ProgramUpdate): Promise<Result<Program>> {
     const result = await programService.updateProgram(id, attributes);

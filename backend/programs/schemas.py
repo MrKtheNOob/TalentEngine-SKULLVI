@@ -43,6 +43,6 @@ class ProgramCreate(BaseModel):
         return ProgramUpdate.validate_name(value)
 
 
-class CandidateDetailResponse(BaseModel):
+class ApplicationDetailResponse(BaseModel):
     program: ProgramResponse
     application: ProgramApplicationResponse

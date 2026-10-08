@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock
 from fastapi import HTTPException
 from pydantic import ValidationError
 from sqlalchemy import select
-from models import Program, ProgramApplication
+from models import Program, ProgramApplication, ScoringJob
 from programs.configuration.api import get_configuration, save_configuration, rescore_applications
 from programs.configuration.schemas import ProgramConfigurationUpdate
 import test_applications
@@ -50,17 +50,21 @@ class ConfigurationTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(error.exception.status_code, 422)
         self.assertEqual(self.session.get(Program, 2).configuration, {})
 
-    async def test_rescore_requires_config_and_never_fabricates_work(self):
+    async def test_rescore_requires_config_and_queues_without_erasing_scores(self):
         self.prepare_db()
         with self.assertRaises(HTTPException) as error:
             await rescore_applications(1, self.db)
         self.assertEqual(error.exception.status_code, 409)
         await save_configuration(1, ProgramConfigurationUpdate.model_validate(configuration()), self.db)
-        with self.assertRaises(HTTPException) as error:
-            await rescore_applications(1, self.db)
-        self.assertEqual(error.exception.status_code, 501)
-        self.assertEqual(self.session.get(ProgramApplication, 1).score, 80)
-        self.assertEqual(self.session.get(ProgramApplication, 1).status, 'ready')
+        application = self.session.get(ProgramApplication, 1)
+        application.normalized_data = {"experience": "Projects"}
+        self.session.commit()
+        response = await rescore_applications(1, self.db)
+        self.assertEqual(response["queued"], 1)
+        self.assertEqual(len(self.session.scalars(select(ScoringJob)).all()), 1)
+        self.assertEqual((await rescore_applications(1, self.db))["queued"], 0)
+        self.assertEqual(application.score, 80)
+        self.assertEqual(application.status, "ready")
 
     def test_invalid_criteria_rejected(self):
         payload = configuration()

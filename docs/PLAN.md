@@ -1,27 +1,22 @@
 # Implementation Plan
 
 ## Current objective
-Complete the application processing flow behind the API-backed interface.
+Validate the complete import → normalization → scoring workflow with a real configured model.
 
 ## Completed milestone
-Program creation/editing, Overview counts, application tables/detail, and configuration JSON persistence use Axios services through hooks. Table filters/sorting run on the API. Configuration save/rescore confirmation dialogs are implemented. No mock extraction or scoring data is mixed with live records.
+Application now owns applicant identity. Separate ImportJob and ScoringJob tables persist work. Imports commit raw rows before acknowledgement and save applications progressively. An asyncio worker handles normalization, temporary PDF reading, validation, weighted scoring, and restart checkpoints. Frontend upload, job progress, application details and explicit rescore actions use the API.
 
 ## Next milestone
-Agree on normalization output, criterion score scale, and priority-to-weight conversion, then process one real submission end to end.
+Apply migration 0004 to a running PostgreSQL database, import a small real export, and verify CV extraction and LLM criterion results.
 
 ## Tasks
-- [ ] Finalize application source/CV and extracted-field schemas.
-- [ ] Approve criterion inference and weighted aggregation behavior.
-- [ ] Implement normalization, validation, scoring, and explicit rescoring.
-- [ ] Add JSON/CSV intake and realistic failure tests.
-- [ ] Document setup and remaining limitations.
-
-## Backend reminders
-- Return field-specific errors for criterion type/option mismatches; do not silently coerce invalid values.
-- One configuration per program, no versions. Save does not automatically rescore: the reviewer chooses whether to rescore after saving or uses the separate button.
-- Existing scores may reflect earlier criteria until successful reassessment; settle how to mark stale scores when the engine exists.
-- Rescore currently returns 501 honestly; it does not queue work or erase scores.
-- Human correction of extracted fields remains to design.
+- [ ] Apply and check the migration against PostgreSQL (local server was unavailable during implementation).
+- [ ] Choose/configure the OpenRouter model and test a real text PDF link.
+- [ ] Review extraction warnings, field-type validation errors and score explanations.
+- [ ] Confirm how reviewers should correct uncertain data; define a numeric confidence threshold if needed.
+- [ ] Verify deployment restart recovery and document Render free-tier sleep behavior.
 
 ## Deferred ideas
-External integrations and full reviewer collaboration workflows.
+Application deletion from the UI/API (including the behavior for associated jobs).
+
+Object storage/original-file archives, OCR, automatic retry policies, configuration versions, separate always-on workers and reviewer collaboration.

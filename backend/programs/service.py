@@ -3,10 +3,8 @@ import unicodedata
 
 from fastapi import HTTPException
 from sqlalchemy import func, select
-from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from candidates.model import Candidate
 from models import Program
 from program_applications.model import ProgramApplication
 from program_applications.schemas import ProgramApplicationResponse, ProcessingStatus
@@ -62,16 +60,6 @@ class ProgramService:
             raise HTTPException(status_code=404, detail='Program not found')
         return program
 
-    async def get_program_candidates(self, program_id: int):
-        await self.get_program(program_id)
-        result = await self.db.execute(
-            select(Candidate)
-            .join(ProgramApplication)
-            .where(ProgramApplication.program_id == program_id)
-        )
-        candidates = result.scalars().all()
-        return candidates
-
     async def get_program_applications(
         self,
         program_id: int,
@@ -95,7 +83,7 @@ class ProgramService:
             applications = [
                 application for application in applications
                 if term in self._normalize_name(
-                    f"{application.candidate.name} {application.candidate.email}"
+                    f"{application.name} {application.email or ''}"
                 )
             ]
         return applications
@@ -110,23 +98,11 @@ class ProgramService:
             raise HTTPException(status_code=404, detail='Application not found')
         return self._application_response(row)
 
-    async def get_candidate_detail(
-        self, program_id: int, candidate_id: int, application_id: int | None = None,
-    ):
-        program = await self.get_program(program_id)
-        query = self._application_query(program_id).where(ProgramApplication.candidate_id == candidate_id)
-        if application_id is not None:
-            query = query.where(ProgramApplication.id == application_id)
-        result = await self.db.execute(query.limit(2))
-        rows = result.all()
-        if not rows:
-            raise HTTPException(status_code=404, detail='Application not found')
-        if len(rows) > 1:
-            raise HTTPException(
-                status_code=409,
-                detail="Multiple applications exist; select an application from the table.",
-            )
-        return {'program': program, 'application': self._application_response(rows[0])}
+    async def get_application_detail(self, program_id: int, application_id: int):
+        return {
+            "program": await self.get_program(program_id),
+            "application": await self.get_program_application(program_id, application_id),
+        }
 
     async def create_program(self, attributes: ProgramCreate):
         program = Program(**attributes.model_dump())
@@ -185,7 +161,6 @@ class ProgramService:
         return (
             select(ProgramApplication, ranked.c.rank)
             .outerjoin(ranked, ranked.c.id == ProgramApplication.id)
-            .options(selectinload(ProgramApplication.candidate))
             .where(ProgramApplication.program_id == program_id)
         )
 

@@ -4,7 +4,7 @@ import asyncio
 from dotenv import load_dotenv
 from sqlalchemy import select
 
-from models import Candidate, Program, ProgramApplication
+from models import Program, ProgramApplication
 from shared.database import DatabaseService
 
 PROGRAMS = [
@@ -14,7 +14,6 @@ PROGRAMS = [
     "Stage Community Manager",
 ]
 
-# Email is required by the current schema, so Khady's missing-email example is omitted.
 # Applications start at 'received': no extraction or scoring has actually run.
 APPLICATIONS = [
     (0, "Awa Ndiaye", "awa.ndiaye@example.com", "/demo/awa-ndiaye-cv.txt"),
@@ -30,7 +29,7 @@ APPLICATIONS = [
 async def seed() -> None:
     load_dotenv()
     database = DatabaseService()
-    created = {"programs": 0, "candidates": 0, "applications": 0}
+    created = {"programs": 0, "applications": 0}
     try:
         await database.connect()
         async with database.sessions() as session, session.begin():
@@ -48,23 +47,17 @@ async def seed() -> None:
                 programs.append(program)
 
             for program_index, name, email, resume_url in APPLICATIONS:
-                candidate = await session.scalar(select(Candidate).where(Candidate.email == email))
-                if candidate is None:
-                    candidate = Candidate(name=name, email=email, resume_url=resume_url)
-                    session.add(candidate)
-                    await session.flush()
-                    created["candidates"] += 1
                 program = programs[program_index]
                 application = await session.scalar(
                     select(ProgramApplication).where(
                         ProgramApplication.program_id == program.id,
-                        ProgramApplication.candidate_id == candidate.id,
+                        ProgramApplication.email == email,
                     )
                 )
                 if application is None:
                     session.add(ProgramApplication(
                         program_id=program.id,
-                        candidate_id=candidate.id,
+                        name=name, email=email, resume_url=resume_url,
                         status="received",
                     ))
                     created["applications"] += 1

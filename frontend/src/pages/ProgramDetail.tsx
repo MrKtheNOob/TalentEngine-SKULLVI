@@ -8,14 +8,22 @@ import { useParams } from "react-router-dom";
 import BackLink from "../components/BackLink";
 import ProgramDetailHeader from "../components/programs/ProgramDetailHeader";
 import ProgramTabs from "../components/programs/ProgramTabs";
+import { useProgramJobs } from "../hooks/useProgramJobs";
 import { useProgram } from "../hooks/usePrograms";
 import { useProgramConfiguration } from "../hooks/useProgramConfiguration";
 
 export default function ProgramDetail() {
   const [activeSection, setActiveSection] = useState<ProgramTab>("overview");
   const { programId } = useParams();
-  const { program, loading, error, notFound, updateProgram } = useProgram(programId);
+  const { refreshKey, refreshJobs } = useProgramJobs(Number(programId));
+  const { program, loading, error, notFound, updateProgram } = useProgram(programId, refreshKey);
   const { configuration, savedConfiguration, updateConfiguration, saveConfiguration, rescoreApplications, loading: configurationLoading, error: configurationError } = useProgramConfiguration(Number(programId));
+
+  async function rescore() {
+    const result = await rescoreApplications();
+    if (!result.error) refreshJobs();
+    return result;
+  }
 
   if (loading || (error && !notFound)) return <DataStatus loading={loading} error={error} />;
 
@@ -37,9 +45,9 @@ export default function ProgramDetail() {
       <ProgramTabs activeSection={activeSection} onSelect={setActiveSection} />
       <div className="mt-5">
         {activeSection === "overview" ? (
-          <ProgramOverviewTab key={program.id} program={program} onSave={updateProgram} />
+          <ProgramOverviewTab key={program.id} program={program} onSave={updateProgram} refreshKey={refreshKey} />
         ) : activeSection === "candidates" ? (
-          <ProgramCandidatesTab key={program.id} programId={program.id} totalApplications={program.candidates} configuration={savedConfiguration} />
+          <ProgramCandidatesTab key={program.id} programId={program.id} refreshKey={refreshKey} totalApplications={program.candidates} configuration={savedConfiguration} />
         ) : (
           <div>
           <DataStatus loading={configurationLoading} error={configurationError} />
@@ -50,7 +58,7 @@ export default function ProgramDetail() {
             onConfigurationChange={updateConfiguration}
             savedConfiguration={savedConfiguration}
             onSave={saveConfiguration}
-            onRescore={rescoreApplications}
+            onRescore={rescore}
           />}
           </div>
         )}

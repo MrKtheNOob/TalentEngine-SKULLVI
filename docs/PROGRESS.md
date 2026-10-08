@@ -68,3 +68,16 @@ This supersedes earlier statements about deterministic criterion scoring, disabl
 - Application intake will use JSON/CSV upload; parsing/mapping/CV details are deferred.
 - Proposed needs_review resolution: show only flagged normalized fields and their source evidence, allow corrections, then validate and reassess. This recommendation is not implemented or approved yet.
 - Build and lint passed after the Dialog and creation changes. Browser modal interactions have not been systematically tested.
+
+## Latest implementation — durable processing
+
+- Applicant identity is merged into Application; candidate ORM/API identity contracts are removed.
+- Migration 0004 preserves existing application IDs and copies linked candidate data before consolidation.
+- Separate ImportJob and ScoringJob models replace the generic job scaffold; no item table or object storage.
+- CSV/JSON uploads are parsed and persisted before 202. Worker checkpoints and application writes commit together per row.
+- Asyncio worker polls PostgreSQL, processes rows independently, recovers interrupted running work and queues per-application scoring.
+- Temporary CV downloads are read through pypdf; external URLs are kept for review. Unreadable PDFs produce warnings.
+- Structured normalization and scoring outputs are validated; 3/2/1 weighted averages are calculated by Python, with explainable breakdowns.
+- Frontend upload, job history, application facts/warnings/scores and rescore dialogs are connected. Relevant screens poll for updates.
+- Automated tests cover parsing, endpoints, restart checkpoints, partial failures, strict scoring/type validation and preserved scores on failure. No paid LLM calls were made.
+- Local PostgreSQL was unavailable: migration SQL was generated successfully, but online migration/check and live-provider verification remain pending.

@@ -4,6 +4,7 @@ import Programs from "./pages/Programs";
 import Dashboard from "./pages/Dashboard";
 import ProgramDetail from "./pages/ProgramDetail";
 import CandidateDetail from "./pages/CandidateDetail";
+import Imports from "./pages/Imports";
 
 export default function App() {
 return (
@@ -12,8 +13,9 @@ return (
     <Route path="/app" element={<MainLayout />}>
       <Route index element={<Programs />} />
       <Route path="programs" element={<Programs />} />
+      <Route path="imports" element={<Imports />} />
       <Route path="programs/:programId" element={<ProgramDetail />} />
-      <Route path="programs/:programId/candidates/:candidateId" element={<CandidateDetail />} />
+      <Route path="programs/:programId/applications/:applicationId" element={<CandidateDetail />} />
       {/* you can put index in dashboar later on if you want */}
       <Route path="dashboard" element={<Dashboard />} />
     </Route>

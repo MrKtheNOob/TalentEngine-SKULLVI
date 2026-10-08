@@ -5,7 +5,7 @@ import unittest
 from fastapi import HTTPException
 from sqlalchemy import create_engine, MetaData, text, DefaultClause
 from sqlalchemy.orm import Session
-from models import Base, Candidate, Program, ProgramApplication
+from models import Base, Program, ProgramApplication
 from programs.api import get_program_applications, get_program_application, create_program
 from programs.schemas import ProgramCreate, ProgramResponse
 from program_applications.schemas import ProgramApplicationResponse
@@ -17,6 +17,15 @@ class QuerySession:
 
     async def execute(self, query):
         return self.session.execute(query)
+
+    async def get(self, model, identifier, **kwargs):
+        return self.session.get(model, identifier, **kwargs)
+
+    async def flush(self):
+        self.session.flush()
+
+    async def rollback(self):
+        self.session.rollback()
 
     def add(self, model):
         self.session.add(model)
@@ -46,9 +55,6 @@ class ApplicationsQueryTests(unittest.IsolatedAsyncioTestCase):
         metadata.create_all(self.engine)
         self.session = Session(self.engine, expire_on_commit=False)
         self.session.add_all([Program(id=1, name='Backend'), Program(id=2, name='Frontend')])
-        for candidate_id, name in [(1, 'Élodie'), (2, 'Ali'), (3, 'Fatou')]:
-            self.session.add(Candidate(id=candidate_id, name=name, email=f'{candidate_id}@example.com'))
-        self.session.flush()
         for app_id, program_id, candidate_id, score, status, day in [
             (1, 1, 1, 80, 'ready', 1),
             (2, 1, 2, 80, 'needs_review', 2),
@@ -56,7 +62,7 @@ class ApplicationsQueryTests(unittest.IsolatedAsyncioTestCase):
             (4, 2, 1, 99, 'ready', 4),
         ]:
             self.session.add(ProgramApplication(id=app_id, program_id=program_id,
-                candidate_id=candidate_id, score=score, status=status,
+                name={1: "Élodie", 2: "Ali", 3: "Fatou"}[candidate_id], email=f"{candidate_id}@example.com", score=score, status=status,
                 created_at=datetime(2026, 10, day, tzinfo=timezone.utc)))
         self.session.commit()
         self.db = QuerySession(self.session)
@@ -85,7 +91,7 @@ class ApplicationsQueryTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_detail_is_scoped_to_program(self):
         detail = await get_program_application(1, 1, ProgramService(self.db))
-        self.assertEqual(detail.candidate.name, 'Élodie')
+        self.assertEqual(detail.name, 'Élodie')
         for program_id, application_id in [(1, 4), (1, 999), (999, 1)]:
             with self.assertRaises(HTTPException) as error:
                 await get_program_application(program_id, application_id, ProgramService(self.db))
@@ -104,17 +110,11 @@ class ApplicationsQueryTests(unittest.IsolatedAsyncioTestCase):
         rows = await self.rows(search='Fatou')
         self.assertEqual(rows[0].rank, None)
 
-    async def test_candidate_detail_requires_specific_application_when_ambiguous(self):
-        from programs.api import get_candidate_detail
-        detail = await get_candidate_detail(1, 1, service=ProgramService(self.db))
-        self.assertEqual(detail['application'].id, 1)
-        self.session.add(ProgramApplication(id=5, program_id=1, candidate_id=1, score=40, status='ready'))
-        self.session.commit()
+    async def test_application_detail_uses_application_identity_and_scope(self):
+        from programs.api import get_application_detail
+        detail = await get_application_detail(1, 1, ProgramService(self.db))
+        self.assertEqual(detail["application"].name, "Élodie")
+        self.assertEqual(detail["application"].id, 1)
         with self.assertRaises(HTTPException) as error:
-            await get_candidate_detail(1, 1, service=ProgramService(self.db))
-        self.assertEqual(error.exception.status_code, 409)
-        selected = await get_candidate_detail(1, 1, application_id=1, service=ProgramService(self.db))
-        self.assertEqual(selected['application'].id, 1)
-        with self.assertRaises(HTTPException) as error:
-            await get_candidate_detail(1, 2, application_id=1, service=ProgramService(self.db))
+            await get_application_detail(1, 4, ProgramService(self.db))
         self.assertEqual(error.exception.status_code, 404)

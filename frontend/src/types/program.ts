@@ -1,4 +1,4 @@
-// Frontend display shape; not yet an agreed backend API contract.
+// Frontend display shape adapted from the program API.
 export type ProgramSortOrder = "updated" | "name" | "candidates";
 
 export interface Program {

@@ -1,45 +1,41 @@
-# React + TypeScript + Vite
+# Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+React, TypeScript, Vite, Tailwind and Lucide. UI data access stays in hooks; Axios services return explicit `Result<T>` values with data/error fields.
 
-Currently, two official plugins are available:
+## Run
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```sh
+npm install
+npm run dev
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+The Axios client defaults to `/api`. Vite proxies that prefix to `http://127.0.0.1:8000` without rewriting it. Production needs a reverse proxy or `VITE_API_URL` pointing to the backend; a different origin also needs backend CORS configuration.
 
+## Pages
 
-## API services
+- `/app/programs`: list/search/sort and create programs.
+- `/app/programs/:programId`: overview, applications and scoring configuration.
+- `/app/programs/:programId/applications/:applicationId`: identity, flexible extracted facts, CV/portfolio links, warnings and score breakdown.
+- `/app/imports`: upload CSV/JSON and follow import/scoring jobs.
 
-Model services live in `src/services`: `programService`, `candidateService`, and `programApplicationService`. Each explicit Axios function returns `Promise<Result<T>>` with either data or an Error. Axios errors retain HTTP responses and field-validation details; use `axios.isAxiosError(result.error)` when inspecting them. There are no interceptors or generic request wrappers.
+Application identity is flat in the API; no separate Candidate model/service exists. Candidate names remain in presentation component filenames and reviewer-facing terminology.
 
-The shared Axios instance defaults to `/api`. Vite proxies `/api` to `http://127.0.0.1:8000` during development. Set `VITE_API_URL` to override the base URL. Production needs its own `/api` reverse proxy or a configured API URL. All screen data-access hooks now call model services. Forms await successful writes before closing; failed writes retain inputs. Table hooks send search/status/sort to the API. Backend response types keep snake_case fields; narrow hooks map them to display types. Configuration uses the existing camelCase JSON shape.
+## Import and scoring integration
 
-Service tests: `node --test tests/services.test.cjs`.
+`FileImportForm`, `ImportFilePicker` and `ImportJobsPanel` keep upload presentation separate from job data access. `jobService` and `useImports` submit multipart files and read persisted job progress. A checkbox controls automatic scoring when saved criteria exist. Success means the import was accepted and persisted, not that processing finished.
 
-Configuration is persisted through its service/hook. Save confirmation offers save-only or save-and-rescore; a separate button requests rescoring using saved criteria. Rescoring currently returns HTTP 501 because no LLM engine exists. Saved changes are kept even if rescoring fails. Extracted candidate fields, warnings, and score explanations display as unavailable until the backend stores them; mock details are not mixed with live records.
+Screens fetch on entry. One program-scoped job check refreshes detail/overview/application data every three seconds only while import or scoring jobs are pending/running, with a final refresh on completion. Successful rescore requests restart this check. Import history follows the same active-job rule and restarts after uploads. Polls are scheduled after each request finishes to avoid overlap. Import history shows progress and row failures; scoring history links to each application. API parsing and validation are authoritative; file extensions and empty-file checks are only early frontend feedback.
 
-Candidate detail uses one scoped endpoint returning program and application. Table links retain candidate routes and include applicationId to identify the exact application. Ambiguous older links report an error rather than selecting arbitrarily. API prefixes are preserved through the development proxy. Restart the backend after loading new routes.
+Configuration save offers save-only or save-and-rescore, plus a separate rescore button. A successful request queues evaluations (202). Scores remain until successful reevaluation; saved configuration changes remain even if queue submission fails. Missing LLM settings return 503.
+
+Model services are `programService`, `programApplicationService`, `configurationService` and `jobService`. There are no interceptors or generic request wrappers. API response fields use snake_case; narrow hooks adapt display types. Configuration retains its existing camelCase JSON shape.
+
+Apply backend migration 0004 and configure the OpenRouter model/key before using processing. Mock fixtures are not used as replacements for live data. Original import files are not archived; original remote CV links remain available subject to their source host.
+
+## Checks
+
+```sh
+npm run build
+npm run lint
+node --test tests/*.test.cjs
+```

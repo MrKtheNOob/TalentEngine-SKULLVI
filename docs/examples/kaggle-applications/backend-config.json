@@ -1,0 +1,32 @@
+{
+  "programId": 1,
+  "criteria": [
+    {
+      "id": "backend-skills",
+      "name": "Compétences backend",
+      "type": "text",
+      "priority": "high",
+      "guidance": "Évaluer les preuves de compétences en Python ou Java, développement d’API, bases de données SQL et tests. Python et Java sont deux voies acceptables : ne pas exiger les deux. Une liste de technologies sans exemples est moins convaincante qu’une utilisation décrite dans un projet. Ne pas inventer de compétences si le CV est illisible."
+    },
+    {
+      "id": "relevant-projects",
+      "name": "Projets et expérience pertinents",
+      "type": "text",
+      "priority": "high",
+      "guidance": "Évaluer les projets ou expériences de développement backend décrits, leur pertinence et la contribution du candidat. Les projets personnels et universitaires comptent pour ce stage. Ne pas exiger une expérience professionnelle senior. Signaler les informations absentes ou ambiguës sans inventer de projets."
+    },
+    {
+      "id": "availability-months",
+      "name": "Durée de disponibilité",
+      "type": "number",
+      "priority": "medium",
+      "unit": "mois",
+      "guidance": "Extraire la durée explicitement annoncée en mois. La date de début seule ne permet pas de déduire cette durée. Si elle est inconnue ou conditionnelle, renvoyer une valeur manquante et un avertissement de vérification. Les plages indiquent une préférence de score et ne constituent pas un rejet automatique.",
+      "ranges": [
+        { "id": "short", "min": 0.0, "max": 4.0, "scoreTier": "low" },
+        { "id": "medium", "min": 4.0, "max": 6.0, "scoreTier": "medium" },
+        { "id": "long", "min": 6.0, "max": null, "scoreTier": "high" }
+      ]
+    }
+  ]
+}

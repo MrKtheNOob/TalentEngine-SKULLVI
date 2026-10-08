@@ -18,10 +18,10 @@
 - Applications should be represented internally through a canonical schema before type validation and LLM criterion scoring.
 - Use LLM normalization and individual criterion-score inference, with validation and code-calculated weighted totals.
 - Each criterion produces an explainable contribution; total score determines ranking.
-- One configuration applies to all applications in a program; saved edits trigger fresh inference for all of them.
+- One configuration applies to all applications in a program; saved edits offer explicit rescoring rather than automatically triggering it.
 - Display field-specific errors when extracted values do not match configured criterion types.
-- Create programs with name and description; revisit other attributes before backend implementation.
-- Later intake will support a JSON/CSV upload interface; details remain to be discussed.
+- Create programs with name and description; other attributes remain to review.
+- Intake supports UTF-8 CSV (comma-separated rows) and JSON (arrays of objects), with durable raw submissions and background processing.
 - `needs_review` means missing, ambiguous, or low-confidence extracted data, not a low score.
 - Do not automatically reject candidates; humans make final selection decisions.
 - Preserve a reference to the original CV; motivation is optional when supplied.
@@ -55,4 +55,9 @@ Programs have no Open/Closed lifecycle. Overview exposes editable name and descr
 
 
 ## Approved configuration workflow
-Configuration remains one JSON document per program. Saving prompts the reviewer to choose save-only or save-and-rescore; rescoring can also be requested separately against saved criteria. Saving alone does not trigger potentially expensive LLM calls. Until the scoring engine exists, rescore requests report unavailability and preserve saved configuration and existing scores.
+Configuration remains one JSON document per program. Saving prompts the reviewer to choose save-only or save-and-rescore; rescoring can also be requested separately against saved criteria. Saving alone does not trigger potentially expensive LLM calls. Rescore requests queue independent application evaluations. Existing scores remain until successful reassessment.
+
+
+## Approved processing direction
+
+Application owns applicant identity; no separate Candidate entity is maintained. Use separate ImportJob and ScoringJob tables. Imports retain raw rows in PostgreSQL, process each independently, and create applications progressively. The original CSV/JSON file is not archived. CVs remain external HTTPS links, downloaded temporarily for PDF text extraction and retained as links for reviewer access. Import can optionally queue scoring when criteria exist. LLM criterion scores use a 0–100 scale; backend averages them with high/medium/low weights of 3/2/1. Failed or ambiguous processing remains visible; low scores never trigger rejection.

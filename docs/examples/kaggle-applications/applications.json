@@ -1,0 +1,44 @@
+[
+  {
+    "Nom complet": "Moussa Exemple",
+    "Email": "java-01@example.com",
+    "Spécialité souhaitée": "Java",
+    "Disponibilité": "Immediately, for six months.",
+    "CV": "https://www.kaggle.com/api/v1/datasets/download/hadikp/resume-data-pdf/Resumes%20PDF%2FJavaDeveloper%2F037d7babd501f4c0.pdf"
+  },
+  {
+    "Nom complet": "Fatou Exemple",
+    "Email": "java-02@example.com",
+    "Spécialité souhaitée": "Java",
+    "Disponibilité": "Available in one month, for four months.",
+    "CV": "https://www.kaggle.com/api/v1/datasets/download/hadikp/resume-data-pdf/Resumes%20PDF%2FJavaDeveloper%2F10d343d910cb636b.pdf"
+  },
+  {
+    "Nom complet": "Ibrahima Exemple",
+    "Email": "python-01@example.com",
+    "Spécialité souhaitée": "Python",
+    "Disponibilité": "Availability to be confirmed.",
+    "CV": "https://www.kaggle.com/api/v1/datasets/download/hadikp/resume-data-pdf/Resumes%20PDF%2FPythonDeveloper%2F09567c5893ce64a2.pdf"
+  },
+  {
+    "Nom complet": "Aminata Exemple",
+    "Email": "python-02@example.com",
+    "Spécialité souhaitée": "Python",
+    "Disponibilité": "Immediately, for three months.",
+    "CV": "https://www.kaggle.com/api/v1/datasets/download/hadikp/resume-data-pdf/Resumes%20PDF%2FPythonDeveloper%2F096d7e0c0fbeea99.pdf"
+  },
+  {
+    "Nom complet": "Mariama Exemple",
+    "Email": "react-01@example.com",
+    "Spécialité souhaitée": "React",
+    "Disponibilité": "Available in two weeks, for six months.",
+    "CV": "https://www.kaggle.com/api/v1/datasets/download/hadikp/resume-data-pdf/Resumes%20PDF%2FReact%2F0bf2b665bd649340.pdf"
+  },
+  {
+    "Nom complet": "Oumar Exemple",
+    "Email": "react-02@example.com",
+    "Spécialité souhaitée": "React",
+    "Disponibilité": "I could start next month; duration depends on my schedule.",
+    "CV": "https://www.kaggle.com/api/v1/datasets/download/hadikp/resume-data-pdf/Resumes%20PDF%2FReact%2F1d2ae903897437bb.pdf"
+  }
+]

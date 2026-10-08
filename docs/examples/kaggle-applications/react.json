@@ -1,0 +1,16 @@
+[
+  {
+    "Nom complet": "Mariama Exemple",
+    "Email": "react-01@example.com",
+    "Spécialité souhaitée": "React",
+    "Disponibilité": "Available in two weeks, for six months.",
+    "CV": "https://www.kaggle.com/api/v1/datasets/download/hadikp/resume-data-pdf/Resumes%20PDF%2FReact%2F0bf2b665bd649340.pdf"
+  },
+  {
+    "Nom complet": "Oumar Exemple",
+    "Email": "react-02@example.com",
+    "Spécialité souhaitée": "React",
+    "Disponibilité": "I could start next month; duration depends on my schedule.",
+    "CV": "https://www.kaggle.com/api/v1/datasets/download/hadikp/resume-data-pdf/Resumes%20PDF%2FReact%2F1d2ae903897437bb.pdf"
+  }
+]

@@ -1,0 +1,16 @@
+[
+  {
+    "Nom complet": "Awa Exemple",
+    "Email": "awa@example.com",
+    "Compétences": ["Python", "FastAPI", "PostgreSQL"],
+    "Expérience": "Un stage backend de trois mois et deux projets personnels.",
+    "Disponibilité": "Immédiatement, pour six mois."
+  },
+  {
+    "Nom complet": "Ali Exemple",
+    "Email": "ali@example.com",
+    "Compétences": ["JavaScript", "React"],
+    "Expérience": "Un projet de tableau de bord universitaire.",
+    "Disponibilité": "À confirmer."
+  }
+]

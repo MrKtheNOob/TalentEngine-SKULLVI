@@ -7,8 +7,8 @@ import { useProgramOverview } from "../../hooks/useProgramOverview";
 import KPICard from "../KPICard";
 import ProgramAttributesPanel from "./ProgramAttributesPanel";
 
-export default function ProgramOverviewTab({ program, onSave }: { program: Program; onSave: (attributes: ProgramUpdate) => Promise<Result<Program>> }) {
-  const { counts, loading, error } = useProgramOverview(program.id);
+export default function ProgramOverviewTab({ program, onSave, refreshKey }: { program: Program; refreshKey: number; onSave: (attributes: ProgramUpdate) => Promise<Result<Program>> }) {
+  const { counts, loading, error } = useProgramOverview(program.id, refreshKey);
   return (
     <div className="space-y-6">
       <ProgramAttributesPanel program={program} onSave={onSave} />

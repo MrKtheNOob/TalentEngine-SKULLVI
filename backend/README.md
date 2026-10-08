@@ -1,88 +1,102 @@
 # Backend
 
-All routes below are mounted under `/api` (for example `/api/programs/`).
-
-FastAPI with SQLAlchemy's async PostgreSQL engine and Psycopg.
+FastAPI, async SQLAlchemy/PostgreSQL, and the OpenAI SDK pointed at OpenRouter. All routes use the `/api` prefix.
 
 ## Run
 
-Install dependencies with `uv sync`. Set `DATABASE_URL` in your environment or in a local `.env` file using `.env.example` as the template. Supply an existing PostgreSQL database. Apply Alembic migrations before starting the API; startup does not modify the schema.
-
-From this directory:
-
 ```sh
+uv sync
+# Set DATABASE_URL, OPENROUTER_API_KEY and OPENROUTER_MODEL in .env.
 uv run alembic upgrade head
-uv run --env-file .env uvicorn main:app --reload
+uv run uvicorn main:app --reload
 ```
 
-Startup checks `SELECT 1` before serving requests. Missing/invalid configuration, connection failures, authentication errors, or a timed-out check abort startup. The pool is disposed on failure and shutdown. Connect timeout is 5 seconds; the overall check has a 10-second deadline. The initialized service is available at `request.app.state.database`; use its `sessions()` factory for a session per unit of work. Do not share one session across requests.
+PostgreSQL connectivity is checked on startup. The API does not create or migrate tables automatically. Missing LLM settings leave reads and program editing available, but import/scoring submissions return 503.
 
-## Program service
+Migration `0004` copies existing candidate identity/contact into applications, preserves application IDs, removes the candidates table and stored rank, and adds processing data plus job tables. This consolidation has no automatic downgrade: use a backup to restore the former schema.
 
-`programs/api.py` injects `ProgramService` through `get_program_service`, which receives the request session from `get_db`. The class in `programs/service.py` owns queries, ranking, and persistence for program-scoped operations. Routes declare HTTP inputs and delegate to its methods. Configuration retains its separate module; no repository layer is introduced.
+## Application and jobs
 
-## Programs query parameters
+Application is the single identity + submission model (`ProgramApplication` in code). It belongs to a program and optionally an import job. Identity fields are name, nullable email/phone, CV URL, and portfolio URL. Raw data, flexible normalized facts, extraction metadata, and score breakdowns are stored as JSON. The final score is nullable and rounded to two decimals. Rank is calculated dynamically before table filtering.
 
-`GET /programs/?sort=candidates&search=backend`
+There are two separate job tables, with no job inheritance or item table:
 
-- `sort`: `updated` (default, newest first), `name` (ascending), or `candidates` (highest count first). Name and ID break ties.
-- `search`: optional trimmed, case- and accent-insensitive name substring.
+- `ImportJob`: program, filename, raw rows, next-row checkpoint, per-row errors, auto-score option, status and timestamps. Its applications are related through `import_job_id` and `import_row`.
+- `ScoringJob`: program, application, configuration used for that execution, status, error and timestamps. Program-wide rescoring creates one job per normalized application. Identical pending/running requests are skipped. Edited criteria replace an unstarted job’s config or enqueue a follow-up after a running evaluation.
 
-Counts include all applications and retain programs with zero applications. Responses include `updated_at`. Sorting uses database collation rather than the browser's French locale. Name search runs in Python for this small, unpaginated MVP. Invalid sort values return HTTP 422.
+Job statuses are pending/running/completed/failed. An import can complete with row failures; its progress distinguishes successful and failed rows. Failed raw rows remain in its database payload, with errors identifying their one-based submission positions.
 
-Run query tests with `uv run python -m unittest discover -s tests -v`.
+## Processing
 
-## Schema changes
+The API parses uploads and commits raw submissions before returning 202. Original CSV/JSON files are not archived and object storage is not required.
 
-After changing models:
+```text
+Import job → each raw row → LLM identifies facts and CV URL
+  → download/read PDF when present → LLM incorporates CV text
+  → validate → save application + optional scoring job + checkpoint
 
-```sh
-uv run alembic revision --autogenerate -m "Describe the schema change"
-# Review the generated migration before applying it.
-uv run alembic upgrade head
-uv run alembic check
+Scoring job → normalized facts + saved criteria
+  → LLM returns criterion scores, values and explanations
+  → validate → calculate weighted average → save score + breakdown
 ```
 
-Autogenerate compares models with the live database; it does not safely infer every change (especially renames). Initial migration `0001` creates the three model tables. For tables previously created with `create_all()`, use `alembic stamp 0001` only after verifying that the existing schema matches that revision.
+Every row commits independently. A failure does not undo preceding applications or stop following rows. When auto-score is selected and criteria exist, successful imports enqueue scoring jobs. Evaluation runs after pending imports; the worker processes jobs sequentially.
 
-## Demo data
+The worker is an asyncio task launched during FastAPI lifespan and polls PostgreSQL every two seconds. A PostgreSQL advisory lock elects one worker across API processes; job claiming uses row locks. Sessions belong to the worker rather than an HTTP request. Shutdown cancels the task before closing clients.
+
+On restart, the elected worker requeues interrupted running jobs. Application creation and import checkpoint updates share a transaction, avoiding duplicate applications on resume. An interrupted LLM call can be repeated and billed again. Failed jobs/rows are not retried automatically. The SDK retains its own request retry behavior.
+
+A worker inside a Render free web service stops when that service sleeps. Persisted jobs resume when it wakes; this is not an always-on processing guarantee.
+
+## Supported imports and CVs
+
+- UTF-8 JSON: nonempty array of objects.
+- UTF-8 CSV: comma-separated, with distinct nonempty headers and one submission per row.
+- Imports are limited to 10 MiB and 1,000 submissions.
+- CVs use external HTTPS links accessible without interactive authentication. Original URLs are preserved for reviewers, including access-token query parameters.
+- CV download limits: 10 MiB, 30 PDF pages, 30-second network timeout and bounded redirects. Local/private network destinations are rejected. Document extraction runs off the event loop.
+- Text PDFs are supported through pypdf. Scanned/encrypted/unreadable PDFs produce review warnings; OCR is deferred. The system does not archive its own copy, so later access depends on the source host.
+
+Normalization validates identity, flexible facts and confidence/warnings. Missing email or an unreadable CV produces a warning. If a name cannot be identified, that row fails without fabricating identity. `needs_review` follows extraction/scoring warnings or validation failures, never a low score. No numeric confidence threshold is imposed yet; the normalization prompt requires warnings for uncertain extraction.
+
+The scoring output must contain exactly the configured criterion IDs, numeric 0–100 scores, explanations and interpreted values. Values must match configured types/options; missing values are explicitly flagged. The LLM supplies judgment, not the official total:
+
+```text
+high = 3, medium = 2, low = 1
+final score = sum(criterion score × weight) / sum(weights)
+```
+
+A failed rescore retains the previous score and breakdown and records an error for review. Saving config alone does not enqueue work. Existing scores may reflect earlier criteria until successful reassessment; no configuration versions or freshness marker are implemented. Final selection remains human.
+
+## API
+
+| Endpoint (under /api) | Behavior |
+| --- | --- |
+| GET/POST `/programs/` | List/create programs |
+| GET/PATCH `/programs/{id}` | Read/edit name and description |
+| GET `/programs/{id}/overview` | Processing counts |
+| GET `/programs/{id}/applications` | Search, status filter and sorting |
+| GET `/programs/{id}/applications/{application_id}` | Scoped application |
+| GET `/programs/{id}/applications/{application_id}/detail` | Program plus application processing details |
+| GET/PUT `/programs/{id}/configuration` | Read/validate/save the single JSON configuration |
+| POST `/programs/{id}/configuration/rescore` | Queue evaluations; 202, or 409 without criteria |
+| POST `/jobs/imports` | Multipart `file`, `program_id`, `auto_score`; 202 after persistence |
+| GET `/jobs/imports` | Import progress/errors; optional program_id filter |
+| GET `/jobs/imports/{id}` | One import's progress/errors |
+| GET `/jobs/scoring` | Scoring history; optional program_id filter |
+| POST `/jobs/scoring/{program_id}/{application_id}` | Queue one application evaluation |
+
+Program filters: `search` (case/accent insensitive), `sort=updated|name|candidates`. Application filters: `search`, `status=all|received|processing|ready|needs_review|failed`, `sort=score|recent`. Unscored applications remain visible with null scores/ranks. Programs have no Open/Closed lifecycle.
+
+## Tests and demo data
 
 ```sh
+uv run python -m unittest discover -s tests -v
 uv run python seed.py
 ```
 
-Seeds four fictional internship programs, seven candidates, and seven applications. Reruns skip matching programs by name, candidates by email, and applications by program/candidate; existing records are preserved. Run one seed process at a time. These matching rules are seed mechanics, not domain uniqueness constraints.
+Tests exercise SQL queries, upload endpoints, checkpoints/recovery, row failures, CV handling, strict score validation, weighted arithmetic and configuration snapshots. LLM calls and CV download content are mocked: tests incur no provider charges.
 
-Applications start as `received`; no evaluation is fabricated. Scores and extracted details are not yet modeled. The missing-email demo candidate is omitted because the current schema requires email. Awa's CV path refers to the existing frontend demo asset. Program configurations remain unconfigured.
+Seed creates four fictional programs and seven applications, matching by program/email on reruns. Existing data is not overwritten. Seed applications have no fabricated extraction or score; scoring requires normalization data from an import. `docs/examples/import.json` is a small fictional input example.
 
-## Program overview and editing
-
-`GET /programs/{id}/overview` returns `total`, `review` (`needs_review`), `processing` (`received` + `processing`), and `failed` application counts. Missing programs return 404.
-
-`PATCH /programs/{id}` accepts optional `name` and `description`. Names are trimmed and cannot be blank or null. Description may be cleared. Other attributes are rejected. Editing these fields does not rescore applications.
-
-Programs have no Open/Closed lifecycle. Migration 0002 removes `is_active`; downgrading restores the column with `true` but cannot recover former status values. Frontend hooks call these endpoints; program edits persist across reloads.
-
-## Application list and detail
-
-- `POST /programs/`: create a program with name and optional description.
-- `GET /programs/{id}/applications?status=needs_review&sort=recent&search=awa`: application table data.
-- `status`: `all` (default), `received`, `processing`, `ready`, `needs_review`, or `failed`.
-- `sort`: `score` (default, highest first, null scores last) or `recent` (newest submission first). ID breaks ties.
-- `search`: trimmed case/accent-insensitive substring of candidate name/email.
-- `GET /programs/{id}/applications/{application_id}`: one application scoped to its program.
-
-Responses include candidate identity/contact, score, stored rank, processing status, and creation timestamp. Rank is computed across all scored program applications before filtering, using descending score and ID to break ties. Unscored applications have null rank. These endpoints do not infer scores. Candidate relations are eagerly loaded for async serialization. Missing programs/applications return 404. No eligibility filtering or rejection is introduced.
-
-Pydantic models live in `programs/schemas.py`, `candidates/schemas.py`, and `program_applications/schemas.py`. Configuration persistence is implemented in the nested module. LLM reassessment and extracted details/warnings remain pending.
-
-## Program configuration
-
-The `programs/configuration` module owns its JSON field mapping, Pydantic schemas, and routes. The JSON remains in the programs table; no extra table or configuration versions are introduced.
-
-- `GET /programs/{id}/configuration`: saved criteria, or an empty criteria list.
-- `PUT /programs/{id}/configuration`: validate and replace the current JSON configuration. The body uses the frontend's `programId`, `criteria`, and `scoreTier` fields. The URL and body program IDs must match.
-- `POST /programs/{id}/configuration/rescore`: explicit rescore request. Returns 409 without saved criteria, or 501 while the LLM engine is unavailable. It never clears existing scores or reports nonexistent work.
-- `GET /programs/{id}/candidates/{candidate_id}?application_id={id}`: program/application detail in one request. Missing or mismatched records return 404; multiple applications without selection return 409.
-
-Config validation rejects unknown types/priorities, blank names/guidance, duplicate IDs/names/options, nonfinite numeric bounds, and overlapping ranges. Saving does not rescore automatically. Existing scores remain unchanged and may correspond to the previous configuration until successful reassessment.
+`shared/llm_service.py` uses [OpenRouter's SDK-compatible endpoint](https://openrouter.ai/docs/quickstart). Select an OpenRouter model through the environment; no default model is chosen. The LLM service uses a 60-second timeout, rejects empty/incomplete completions, and leaves JSON validation to the processing schemas.

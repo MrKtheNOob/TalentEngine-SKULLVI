@@ -3,11 +3,10 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from candidates.schemas import CandidateResponse
 from program_applications.schemas import ProgramApplicationResponse, ProcessingStatus
 from programs.configuration.api import router as configuration_router
 from programs.schemas import (
-    CandidateDetailResponse,
+    ApplicationDetailResponse,
     ProgramCreate,
     ProgramOverviewResponse,
     ProgramResponse,
@@ -42,11 +41,6 @@ async def get_program(program_id: int, service: ProgramServiceDependency):
     return await service.get_program(program_id=program_id)
 
 
-@router.get('/{program_id}/candidates', response_model=list[CandidateResponse])
-async def get_program_candidates(program_id: int, service: ProgramServiceDependency):
-    return await service.get_program_candidates(program_id=program_id)
-
-
 @router.get('/{program_id}/applications', response_model=list[ProgramApplicationResponse])
 async def get_program_applications(
     program_id: int,
@@ -67,16 +61,11 @@ async def get_program_application(
     return await service.get_program_application(program_id=program_id, application_id=application_id)
 
 
-@router.get('/{program_id}/candidates/{candidate_id}', response_model=CandidateDetailResponse)
-async def get_candidate_detail(
-    program_id: int,
-    candidate_id: int,
-    service: ProgramServiceDependency,
-    application_id: int | None = None,
+@router.get('/{program_id}/applications/{application_id}/detail', response_model=ApplicationDetailResponse)
+async def get_application_detail(
+    program_id: int, application_id: int, service: ProgramServiceDependency,
 ):
-    return await service.get_candidate_detail(
-        program_id=program_id, candidate_id=candidate_id, application_id=application_id,
-    )
+    return await service.get_application_detail(program_id, application_id)
 
 
 @router.post('/', response_model=ProgramResponse, status_code=201)

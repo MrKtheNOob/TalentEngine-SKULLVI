@@ -15,8 +15,7 @@ export default function CandidateRow({
   application: Application;
   rank: number | undefined;
 }) {
-  const { candidate } = application;
-  const initials = candidate.name
+  const initials = application.name
     .split(" ")
     .map((part) => part[0])
     .slice(0, 2)
@@ -39,9 +38,9 @@ export default function CandidateRow({
             {initials}
           </span>
           <div className="min-w-0">
-            <p className="font-medium">{candidate.name}</p>
+            <p className="font-medium">{application.name}</p>
             <p className="mt-1 break-all text-xs text-slate-500">
-              {candidate.email ?? "Email non fourni"}
+              {application.email ?? "Email non fourni"}
             </p>
             {(application.warnings?.length ?? 0) > 0 && (
               <ul className="mt-2 space-y-1 text-xs text-amber-700">
@@ -64,8 +63,8 @@ export default function CandidateRow({
       </td>
       <td className="px-2 py-4 text-center">
         <Link
-          to={`/app/programs/${application.programId}/candidates/${candidate.id}?applicationId=${application.id}`}
-          aria-label={`Voir le profil de ${candidate.name}`}
+          to={`/app/programs/${application.programId}/applications/${application.id}`}
+          aria-label={`Voir le profil de ${application.name}`}
           className="inline-flex items-center gap-1 rounded-lg bg-blue-50 p-2 text-xs font-medium text-blue-600 hover:bg-blue-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
         >
           <span className="sr-only">Voir le profil</span>

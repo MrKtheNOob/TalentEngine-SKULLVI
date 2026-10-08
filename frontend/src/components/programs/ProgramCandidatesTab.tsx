@@ -62,12 +62,14 @@ function CandidateApplicationsTable({
 
 interface ProgramCandidatesTabProps {
   programId: number;
+  refreshKey: number;
   configuration: ProgramConfiguration | null;
   totalApplications: number;
 }
 
 export default function ProgramCandidatesTab({
   programId,
+  refreshKey,
   configuration,
   totalApplications,
 }: ProgramCandidatesTabProps) {
@@ -81,7 +83,7 @@ export default function ProgramCandidatesTab({
     visibleApplications,
     loading,
     error,
-  } = useCandidatesTable(programId);
+  } = useCandidatesTable(programId, refreshKey);
   return (
     <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_220px] 2xl:grid-cols-[minmax(0,1fr)_260px]">
       <section

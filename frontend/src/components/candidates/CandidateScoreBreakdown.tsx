@@ -4,7 +4,7 @@ export default function CandidateScoreBreakdown({ breakdown }: { breakdown: Crit
   return (
     <section className="rounded-lg border border-slate-200 bg-white p-5 sm:p-6">
       <h2 className="text-lg font-semibold">Détail du score</h2>
-      <p className="mt-2 text-xs text-slate-500">Contributions des critères au score global.</p>
+      <p className="mt-2 text-xs text-slate-500">Scores par critère sur 100 ; les poids déterminent leur contribution au score global.</p>
       <div className="mt-4 divide-y divide-slate-200">
         {breakdown.map((criterion) => (
           <div key={criterion.criterionId} className="py-4">

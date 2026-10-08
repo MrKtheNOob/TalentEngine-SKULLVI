@@ -575,3 +575,49 @@ The user requested the class and database injection. Routes delegate to explicit
 
 ### Consequences / limitations
 Behavior remains unchanged. The service still uses existing HTTP exceptions; it is not a framework-independent domain layer. Configuration remains in its existing module.
+
+## D-025 — OpenRouter through the OpenAI SDK
+
+### Context
+Application processing needs an LLM connection. The user requested an LLM service using the OpenAI SDK with an OpenRouter API key.
+
+### Decision
+Use `AsyncOpenAI` pointed at OpenRouter in `shared/llm.py`. Read the key and selected model from `OPENROUTER_API_KEY` and `OPENROUTER_MODEL`.
+
+### Rationale
+Follow the requested SDK and provider without introducing another framework.
+
+### Consequences / limitations
+The connection service is implemented. Model selection, normalization/scoring contracts, and processing integration remain undecided or unfinished; no live LLM calls were made during verification.
+
+
+## D-026 — Durable import and scoring jobs without object storage
+
+### Context
+Imports need independent row processing, traceability and durability despite Render's ephemeral filesystem. The user approved implementation after clarifying separate import/scoring operations.
+
+### Options considered
+Object storage, one generic job with child items, or separate operation-specific jobs with raw submissions in PostgreSQL.
+
+### Decision
+Use ImportJob (program, raw rows, progress/errors, created applications) and ScoringJob (program and one application). Parse files before acknowledgement and persist raw rows. Keep CVs at their external source URLs and download them temporarily for reading. Run an asyncio polling worker alongside the API. LLM normalization and criterion scoring remain separate; backend computes the weighted 0–100 total using 3/2/1 priorities.
+
+### Rationale
+Avoid unfamiliar queue infrastructure and file archives while retaining incremental results and restart checkpoints.
+
+### Consequences / limitations
+A free Render instance pauses work when sleeping. PDF text extraction has no OCR. Failed rows remain recorded, with no automatic retry UI. Worker configuration snapshots describe executions, not program configuration versions. Original CV access depends on its host. Import limits and two-decimal score display are implementation defaults.
+
+## D-027 — Application contains applicant identity
+
+### Context
+The user explicitly confirmed that candidate and application are now one model during processing implementation.
+
+### Decision
+Merge identity/contact data into ProgramApplication; remove the separate Candidate ORM model and API contract. Detail routes identify applications directly.
+
+### Rationale
+The MVP reviews applications within programs and does not need cross-program identity management.
+
+### Consequences / limitations
+Migration 0004 copies existing linked candidate data before dropping candidates. Application IDs remain unchanged; old candidate-detail URLs are replaced. Reverting the merge requires a database backup. This supersedes earlier Candidate → Application relationship decisions.

@@ -2,6 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from models import Program
 from shared.dependencies import get_db
+from jobs.job_service import JobService
+from jobs.api import require_worker
 from .schemas import ProgramConfigurationResponse, ProgramConfigurationUpdate, RescoreResponse
 
 router = APIRouter(prefix='/{program_id}/configuration', tags=['program configuration'])
@@ -30,10 +32,6 @@ async def save_configuration(program_id: int, configuration: ProgramConfiguratio
     return configuration
 
 
-@router.post('/rescore', response_model=RescoreResponse)
+@router.post('/rescore', response_model=RescoreResponse, status_code=202, dependencies=[Depends(require_worker)])
 async def rescore_applications(program_id: int, db: AsyncSession = Depends(get_db)):
-    program = await find_program(program_id, db)
-    if not (program.configuration or {}).get('criteria'):
-        raise HTTPException(status_code=409, detail='Enregistrez des critères avant de relancer l’évaluation.')
-    # No LLM pipeline exists yet. Do not clear scores or report nonexistent work.
-    raise HTTPException(status_code=501, detail='La configuration est enregistrée, mais le moteur de scoring n’est pas encore disponible. Aucune réévaluation n’a été lancée.')
+    return await JobService(db).enqueue_scoring(program_id)

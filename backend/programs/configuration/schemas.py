@@ -80,3 +80,4 @@ class ProgramConfigurationUpdate(ProgramConfigurationResponse):
 
 class RescoreResponse(BaseModel):
     message: str
+    queued: int = 0
