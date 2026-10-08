@@ -1,17 +1,7 @@
 import { ExternalLink } from "lucide-react";
 import type { Application } from "../../types/application";
-
-const labels: Record<string, string> = {
-  education: "Formation", skills: "Compétences", experience: "Expérience",
-  availability: "Disponibilité", motivation: "Motivation", location: "Localisation",
-};
-
-function displayFact(value: unknown): string {
-  if (value === null || value === undefined) return "Non fourni";
-  if (Array.isArray(value)) return value.map(displayFact).join(", ");
-  if (typeof value === "object") return JSON.stringify(value);
-  return String(value);
-}
+import { applicationDetailFields } from "./applicationFacts";
+import ExtractedFactValue from "./ExtractedFactValue";
 
 export default function CandidateApplicationDetails({ application, normalized }: { application: Application; normalized: Record<string, unknown> | null }) {
   return (
@@ -27,10 +17,10 @@ export default function CandidateApplicationDetails({ application, normalized }:
           <dt className="text-slate-500">Portfolio</dt>
           <dd>{application.portfolioUrl ? <a href={application.portfolioUrl} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">Ouvrir le portfolio</a> : "Non fourni"}</dd>
         </div>
-        {Object.entries(normalized ?? {}).map(([key, value]) => (
+        {Object.entries(applicationDetailFields).map(([key, label]) => (
           <div key={key} className="grid gap-2 py-4 sm:grid-cols-[130px_1fr]">
-            <dt className="break-words text-slate-500">{labels[key] ?? key.replaceAll("_", " ")}</dt>
-            <dd className="min-w-0 whitespace-pre-wrap break-words leading-6">{displayFact(value)}</dd>
+            <dt className="break-words text-slate-500">{label}</dt>
+            <dd className="min-w-0 break-words leading-6"><ExtractedFactValue value={normalized?.[key]} badges={key === "skills"} /></dd>
           </div>
         ))}
       </dl>

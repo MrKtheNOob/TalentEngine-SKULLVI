@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { Mail, MapPin } from "lucide-react";
 import BackLink from "../BackLink";
+import DeleteApplicationButton from "./DeleteApplicationButton";
 import type { Application } from "../../types/application";
 import type { Program } from "../../types/program";
 
@@ -21,7 +22,10 @@ export default function CandidateProfileHeader({ application, program, normalize
             <div className="mt-3 flex flex-wrap gap-4 text-sm text-slate-500"><span className="flex items-center gap-2 break-all"><Mail size={16} aria-hidden="true" />{application.email ?? "Email non fourni"}</span>{typeof normalized?.location === "string" && <span className="flex items-center gap-2"><MapPin size={16} aria-hidden="true" />{normalized.location}</span>}</div>
           </div>
         </div>
-        <BackLink to={`/app/programs/${program.id}`} label="Retour au programme" />
+        <div className="flex flex-wrap items-center gap-3">
+          <BackLink to={`/app/programs/${program.id}`} label="Retour au programme" />
+          <DeleteApplicationButton programId={program.id} applicationId={application.id} name={application.name} />
+        </div>
       </header>
   </>);
 }

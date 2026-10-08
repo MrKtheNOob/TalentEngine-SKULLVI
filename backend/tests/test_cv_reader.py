@@ -4,6 +4,8 @@ import socket
 import unittest
 from unittest.mock import AsyncMock, patch
 
+import httpx
+
 from pypdf import PdfWriter
 from jobs.cv_reader import CVReader
 
@@ -21,10 +23,45 @@ class CVReaderTests(unittest.IsolatedAsyncioTestCase):
             with self.assertRaises(ValueError):
                 await reader._check_url("https://localhost/cv.pdf")
 
-    def test_scanned_or_empty_pdf_does_not_silently_normalize(self):
+    def blank_pdf(self):
         writer = PdfWriter()
         writer.add_blank_page(width=100, height=100)
         content = io.BytesIO()
         writer.write(content)
-        with self.assertRaisesRegex(ValueError, "texte lisible"):
-            CVReader()._extract_text(content.getvalue())
+        return content.getvalue()
+
+    async def read_pdf(self, reader, pdf):
+        transport = httpx.MockTransport(lambda request: httpx.Response(200, content=pdf))
+        client = httpx.AsyncClient(transport=transport)
+        with patch('jobs.cv_reader.httpx.AsyncClient', return_value=client), patch.object(reader, '_check_url', new=AsyncMock()):
+            return await reader.read('https://example.com/cv.pdf')
+
+    async def test_scanned_pdf_uses_ocr_fallback(self):
+        ocr = AsyncMock()
+        ocr.extract_text.return_value = 'Python projects'
+        pdf = self.blank_pdf()
+        self.assertEqual(await self.read_pdf(CVReader(ocr), pdf), 'Python projects')
+        ocr.extract_text.assert_awaited_once_with(pdf)
+
+    async def test_native_text_skips_ocr(self):
+        ocr = AsyncMock()
+        reader = CVReader(ocr)
+        with patch.object(reader, '_extract_text', return_value='Native PDF text'):
+            self.assertEqual(await self.read_pdf(reader, self.blank_pdf()), 'Native PDF text')
+        ocr.extract_text.assert_not_awaited()
+
+    async def test_scanned_pdf_without_ocr_remains_a_review_error(self):
+        with self.assertRaisesRegex(ValueError, 'texte lisible'):
+            await self.read_pdf(CVReader(), self.blank_pdf())
+
+    async def test_malformed_pdf_does_not_trigger_ocr(self):
+        ocr = AsyncMock()
+        with self.assertRaises(Exception):
+            await self.read_pdf(CVReader(ocr), b'%PDF-broken')
+        ocr.extract_text.assert_not_awaited()
+
+    async def test_ocr_failure_is_not_returned_as_cv_text(self):
+        ocr = AsyncMock()
+        ocr.extract_text.side_effect = ValueError('OCR unavailable')
+        with self.assertRaisesRegex(ValueError, 'OCR unavailable'):
+            await self.read_pdf(CVReader(ocr), self.blank_pdf())

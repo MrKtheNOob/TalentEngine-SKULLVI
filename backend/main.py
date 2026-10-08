@@ -14,6 +14,7 @@ from jobs.worker import JobWorker
 from programs.api import router as programs_router
 from shared.database import DatabaseService
 from shared.llm_service import LLMService
+from shared.ocr_service import OCRService
 
 load_dotenv()
 logger = logging.getLogger(__name__)
@@ -30,7 +31,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
         app.state.database = database
         if os.getenv("OPENROUTER_API_KEY") and os.getenv("OPENROUTER_MODEL"):
             llm = LLMService()
-            worker = JobWorker(database, ApplicationProcessor(llm, CVReader()))
+            # CV reading tries local text extraction, then paid OCR for scanned PDFs.
+            cv_reader = CVReader(OCRService(llm))
+            worker = JobWorker(database, ApplicationProcessor(llm, cv_reader))
             app.state.worker = worker
             task = asyncio.create_task(worker.run(), name="application-jobs")
 

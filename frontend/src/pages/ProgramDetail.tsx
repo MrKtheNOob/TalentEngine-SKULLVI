@@ -43,7 +43,7 @@ export default function ProgramDetail() {
     <>
       <ProgramDetailHeader program={program} />
       <ProgramTabs activeSection={activeSection} onSelect={setActiveSection} />
-      <div className="mt-5">
+      <div key={activeSection} className="appearance-group mt-5">
         {activeSection === "overview" ? (
           <ProgramOverviewTab key={program.id} program={program} onSave={updateProgram} refreshKey={refreshKey} />
         ) : activeSection === "candidates" ? (

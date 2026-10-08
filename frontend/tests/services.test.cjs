@@ -128,3 +128,23 @@ test('import service submits multipart rows to the queue endpoint and reads job 
   const failure = await jobs.createImport(3, file, true);
   assert.equal(failure.error.message, 'Malformed JSON collection');
 });
+
+test('application deletion uses the scoped route and displays running-job conflicts', async () => {
+  const requests = [];
+  const api = axios.create({ adapter: async (config) => {
+    requests.push(config);
+    return { data: '', status: 204, statusText: 'No Content', headers: {}, config };
+  }});
+  const applications = loadService('programApplicationService', api);
+  const result = await applications.deleteApplication(1, 7);
+  assert.equal(result.data, true);
+  assert.equal(result.error, null);
+  assert.equal(requests[0].method, 'delete');
+  assert.equal(requests[0].url, '/programs/1/applications/7');
+  api.defaults.adapter = async () => { throw new axios.AxiosError('Conflict', 'ERR_BAD_REQUEST', {}, {}, {
+    status: 409, data: { detail: 'Une évaluation est en cours.' },
+  }); };
+  const blocked = await applications.deleteApplication(1, 7);
+  assert.equal(blocked.data, null);
+  assert.equal(blocked.error.message, 'Une évaluation est en cours.');
+});

@@ -25,6 +25,8 @@ class ApplicationProcessor:
             except Exception:
                 output.metadata.warnings.append("Le CV n’a pas pu être téléchargé ou lu. Vérifiez le document source.")
             else:
+                # Both native PDF text and OCR text follow the same normalization schema.
+                # OCR can misread characters; uncertainty still belongs in metadata warnings.
                 cv_url = output.cv_url
                 output = await self._normalize(raw, program, text)
                 output.cv_url = cv_url
@@ -76,6 +78,7 @@ class ApplicationProcessor:
             }, ensure_ascii=False)},
         ])
         output = ScoringOutput.model_validate_json(response)
+        # Reject missing/extra criteria before calculating the authoritative weighted score.
         expected = {criterion.id for criterion in config.criteria}
         if set(output.criteria) != expected:
             raise ValueError("Le scoring doit contenir exactement les critères du programme.")
@@ -87,6 +90,7 @@ class ApplicationProcessor:
             if result.value is None:
                 warnings.append(f"{criterion.name} : données manquantes ou ambiguës.")
             weight = self.WEIGHTS[criterion.priority]
+            # The LLM judges each criterion; only Python calculates the final total.
             total += result.score * weight
             weight_sum += weight
             breakdown.append({

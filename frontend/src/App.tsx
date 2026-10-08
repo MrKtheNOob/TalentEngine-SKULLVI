@@ -1,7 +1,6 @@
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import MainLayout from "./Layouts/MainLayout";
 import Programs from "./pages/Programs";
-import Dashboard from "./pages/Dashboard";
 import ProgramDetail from "./pages/ProgramDetail";
 import CandidateDetail from "./pages/CandidateDetail";
 import Imports from "./pages/Imports";
@@ -16,8 +15,6 @@ return (
       <Route path="imports" element={<Imports />} />
       <Route path="programs/:programId" element={<ProgramDetail />} />
       <Route path="programs/:programId/applications/:applicationId" element={<CandidateDetail />} />
-      {/* you can put index in dashboar later on if you want */}
-      <Route path="dashboard" element={<Dashboard />} />
     </Route>
   </Routes>
 </BrowserRouter>   

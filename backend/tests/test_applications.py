@@ -118,3 +118,65 @@ class ApplicationsQueryTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(HTTPException) as error:
             await get_application_detail(1, 4, ProgramService(self.db))
         self.assertEqual(error.exception.status_code, 404)
+
+
+class ApplicationDeletionTests(unittest.IsolatedAsyncioTestCase):
+    setUp = ApplicationsQueryTests.setUp
+    tearDown = ApplicationsQueryTests.tearDown
+
+    async def test_delete_removes_related_jobs_preserves_program_and_import(self):
+        from jobs.model import ImportJob, ScoringJob
+        from sqlalchemy import select
+        self.session.execute(text('PRAGMA foreign_keys=ON'))
+        self.session.get(Program, 1).configuration = {'criteria': [{'id': 'keep'}]}
+        job = ImportJob(program_id=1, filename='rows.json', raw_rows=[{'name': 'Élodie'}], next_row=1, status='completed')
+        self.session.add(job)
+        self.session.flush()
+        self.session.get(ProgramApplication, 1).import_job_id = job.id
+        self.session.add_all([
+            ScoringJob(program_id=1, application_id=1, configuration={}, status='pending'),
+            ScoringJob(program_id=1, application_id=1, configuration={}, status='completed'),
+            ScoringJob(program_id=2, application_id=4, configuration={}, status='pending'),
+        ])
+        self.session.commit()
+        await ProgramService(self.db).delete_application(1, 1)
+        self.assertIsNone(self.session.get(ProgramApplication, 1))
+        self.assertEqual([row.application_id for row in self.session.scalars(select(ScoringJob)).all()], [4])
+        self.assertIsNotNone(self.session.get(ProgramApplication, 4))
+        self.assertEqual(self.session.get(ImportJob, job.id).next_row, 1)
+        self.assertEqual(self.session.get(Program, 1).configuration, {'criteria': [{'id': 'keep'}]})
+        self.assertEqual((await ProgramService(self.db).get_program(1))['candidates_count'], 2)
+
+    async def test_wrong_program_and_missing_application_are_not_deleted(self):
+        for pid, aid in [(1, 4), (1, 999), (999, 1)]:
+            with self.assertRaises(HTTPException) as error:
+                await ProgramService(self.db).delete_application(pid, aid)
+            self.assertEqual(error.exception.status_code, 404)
+            await self.db.rollback()
+        self.assertIsNotNone(self.session.get(ProgramApplication, 1))
+        self.assertIsNotNone(self.session.get(ProgramApplication, 4))
+
+    async def test_running_evaluation_blocks_deletion_without_data_loss(self):
+        from jobs.model import ScoringJob
+        job = ScoringJob(program_id=1, application_id=1, configuration={}, status='running')
+        self.session.add(job)
+        self.session.commit()
+        with self.assertRaises(HTTPException) as error:
+            await ProgramService(self.db).delete_application(1, 1)
+        self.assertEqual(error.exception.status_code, 409)
+        await self.db.rollback()
+        self.assertIsNotNone(self.session.get(ProgramApplication, 1))
+        self.assertEqual(self.session.get(ScoringJob, job.id).status, 'running')
+
+    async def test_delete_endpoint_returns_empty_204(self):
+        import httpx
+        from fastapi import FastAPI
+        from programs.api import router, get_program_service
+        app = FastAPI()
+        app.include_router(router, prefix='/api')
+        app.dependency_overrides[get_program_service] = lambda: ProgramService(self.db)
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url='http://test') as client:
+            response = await client.delete('/api/programs/1/applications/1')
+            self.assertEqual(response.status_code, 204)
+            self.assertEqual(response.content, b'')
+            self.assertEqual((await client.delete('/api/programs/1/applications/1')).status_code, 404)

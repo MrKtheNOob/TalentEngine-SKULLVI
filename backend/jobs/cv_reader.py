@@ -7,9 +7,14 @@ from urllib.parse import urljoin, urlparse
 import httpx
 from pypdf import PdfReader
 
+from shared.ocr_service import OCRService
+
 
 class CVReader:
     MAX_BYTES = 10 * 1024 * 1024
+
+    def __init__(self, ocr: OCRService | None = None):
+        self.ocr = ocr
 
     async def read(self, url: str) -> str:
         # Submitted URLs are untrusted: never download from local/private networks.
@@ -29,7 +34,15 @@ class CVReader:
                             raise ValueError("Le CV dépasse la limite de 10 Mo.")
                     if not content.startswith(b"%PDF-"):
                         raise ValueError("Le CV doit être un document PDF.")
-                    return await asyncio.to_thread(self._extract_text, bytes(content))
+                    pdf = bytes(content)
+                    # Native extraction is free and keeps readable PDFs off the OCR API.
+                    # Validation errors (encrypted, oversized, malformed) never trigger OCR.
+                    text = await asyncio.to_thread(self._extract_text, pdf)
+                    if text.strip():
+                        return text
+                    if self.ocr is not None:
+                        return await self.ocr.extract_text(pdf)
+                    raise ValueError("Le CV ne contient pas de texte lisible ; les PDF scannés nécessitent une vérification.")
             raise ValueError("Le lien du CV comporte trop de redirections.")
 
     async def _check_url(self, url: str):
@@ -49,6 +62,5 @@ class CVReader:
         if len(reader.pages) > 30:
             raise ValueError("Le CV dépasse la limite de 30 pages.")
         text = "\n".join(page.extract_text() or "" for page in reader.pages)
-        if not text.strip():
-            raise ValueError("Le CV ne contient pas de texte lisible ; les PDF scannés nécessitent une vérification.")
+        # Empty text indicates a scanned/blank PDF, so read() can choose the fallback.
         return text

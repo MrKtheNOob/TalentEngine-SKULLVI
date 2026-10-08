@@ -2,10 +2,11 @@ from typing import Literal
 import unicodedata
 
 from fastapi import HTTPException
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from models import Program
+from jobs.model import ScoringJob
 from program_applications.model import ProgramApplication
 from program_applications.schemas import ProgramApplicationResponse, ProcessingStatus
 from programs.schemas import ProgramCreate, ProgramUpdate
@@ -103,6 +104,31 @@ class ProgramService:
             "program": await self.get_program(program_id),
             "application": await self.get_program_application(program_id, application_id),
         }
+
+    async def delete_application(self, program_id: int, application_id: int):
+        # Enqueue requests use this same program lock, preventing new scoring jobs
+        # from being added between checking jobs and deleting the application.
+        program = (await self.db.execute(
+            select(Program).where(Program.id == program_id).with_for_update()
+        )).scalar_one_or_none()
+        if program is None:
+            raise HTTPException(status_code=404, detail="Programme introuvable.")
+        application = (await self.db.execute(select(ProgramApplication).where(
+            ProgramApplication.id == application_id, ProgramApplication.program_id == program_id,
+        ))).scalar_one_or_none()
+        if application is None:
+            raise HTTPException(status_code=404, detail="Candidature introuvable.")
+        # Lock pending jobs before the worker claims them. Already-running work
+        # must finish first; this MVP does not introduce job cancellation.
+        jobs = (await self.db.execute(select(ScoringJob).where(
+            ScoringJob.application_id == application_id,
+        ).with_for_update())).scalars().all()
+        if any(job.status == "running" for job in jobs):
+            raise HTTPException(status_code=409, detail="Une évaluation est en cours. Attendez sa fin avant de supprimer cette candidature.")
+        await self.db.execute(delete(ScoringJob).where(ScoringJob.application_id == application_id))
+        await self.db.execute(delete(ProgramApplication).where(ProgramApplication.id == application_id))
+        # Keep import history/checkpoints: processed rows are not imported again.
+        await self.db.commit()
 
     async def create_program(self, attributes: ProgramCreate):
         program = Program(**attributes.model_dump())

@@ -1,4 +1,5 @@
 import { api } from "./api";
+import axios from "axios";
 import type { ProcessingStatus, ProgramApplicationResponse } from "../types/application";
 import type { ProgramResponse } from "../types/program";
 import type { Result } from "../types/result";
@@ -7,6 +8,19 @@ export interface ApplicationFilters {
   search?: string;
   status?: ProcessingStatus | "all";
   sort?: "score" | "recent";
+}
+
+export async function deleteApplication(programId: number, applicationId: number): Promise<Result<boolean>> {
+  try {
+    await api.delete(`/programs/${programId}/applications/${applicationId}`);
+    return { data: true, error: null };
+  } catch (error) {
+    // Display the backend's explanation when deletion is blocked by running work.
+    if (axios.isAxiosError<{ detail?: string }>(error) && typeof error.response?.data.detail === "string") {
+      error.message = error.response.data.detail;
+    }
+    return { data: null, error: error instanceof Error ? error : new Error("Impossible de supprimer la candidature.") };
+  }
 }
 
 export async function getProgramApplications(

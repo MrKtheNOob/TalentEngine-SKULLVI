@@ -6,6 +6,8 @@ Validate the complete import → normalization → scoring workflow with a real 
 ## Completed milestone
 Application now owns applicant identity. Separate ImportJob and ScoringJob tables persist work. Imports commit raw rows before acknowledgement and save applications progressively. An asyncio worker handles normalization, temporary PDF reading, validation, weighted scoring, and restart checkpoints. Frontend upload, job progress, application details and explicit rescore actions use the API.
 
+The user confirmed a successful live import with OCR and scoring; the resulting applications are persisted in PostgreSQL. The unused dashboard has been removed; Programs remains the entry page.
+
 ## Next milestone
 Apply migration 0004 to a running PostgreSQL database, import a small real export, and verify CV extraction and LLM criterion results.
 
@@ -17,6 +19,4 @@ Apply migration 0004 to a running PostgreSQL database, import a small real expor
 - [ ] Verify deployment restart recovery and document Render free-tier sleep behavior.
 
 ## Deferred ideas
-Application deletion from the UI/API (including the behavior for associated jobs).
-
-Object storage/original-file archives, OCR, automatic retry policies, configuration versions, separate always-on workers and reviewer collaboration.
+Object storage/original-file archives, automatic retry policies, configuration versions, separate always-on workers and reviewer collaboration.

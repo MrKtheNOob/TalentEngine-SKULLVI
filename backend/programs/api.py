@@ -1,6 +1,6 @@
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from program_applications.schemas import ProgramApplicationResponse, ProcessingStatus
@@ -66,6 +66,12 @@ async def get_application_detail(
     program_id: int, application_id: int, service: ProgramServiceDependency,
 ):
     return await service.get_application_detail(program_id, application_id)
+
+
+@router.delete('/{program_id}/applications/{application_id}', status_code=204)
+async def delete_application(program_id: int, application_id: int, service: ProgramServiceDependency):
+    await service.delete_application(program_id, application_id)
+    return Response(status_code=204)
 
 
 @router.post('/', response_model=ProgramResponse, status_code=201)

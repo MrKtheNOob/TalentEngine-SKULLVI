@@ -1,10 +1,9 @@
-import { House, Layers, Upload } from "lucide-react";
+import { Layers, Upload } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 
 export default function Sidebar() {
   const { pathname } = useLocation();
   const links = [
-    { icon: House, label: "Dashboard", to: "/app/dashboard" },
     { icon: Layers, label: "Programs", to: "/app/programs" },
     { icon: Upload, label: "Imports", to: "/app/imports" },
   ];

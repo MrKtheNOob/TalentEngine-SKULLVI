@@ -32,7 +32,7 @@ The API parses uploads and commits raw submissions before returning 202. Origina
 
 ```text
 Import job → each raw row → LLM identifies facts and CV URL
-  → download/read PDF when present → LLM incorporates CV text
+  → download/read PDF (OCR fallback if no text) → LLM incorporates CV text
   → validate → save application + optional scoring job + checkpoint
 
 Scoring job → normalized facts + saved criteria
@@ -55,7 +55,8 @@ A worker inside a Render free web service stops when that service sleeps. Persis
 - Imports are limited to 10 MiB and 1,000 submissions.
 - CVs use external HTTPS links accessible without interactive authentication. Original URLs are preserved for reviewers, including access-token query parameters.
 - CV download limits: 10 MiB, 30 PDF pages, 30-second network timeout and bounded redirects. Local/private network destinations are rejected. Document extraction runs off the event loop.
-- Text PDFs are supported through pypdf. Scanned/encrypted/unreadable PDFs produce review warnings; OCR is deferred. The system does not archive its own copy, so later access depends on the source host.
+- Text PDFs use pypdf first. Valid PDFs without text use `shared/ocr_service.py`, which sends the downloaded bytes to OpenRouter's `file-parser` plugin with `mistral-ocr`. It reuses the existing OpenRouter client/key/model and reads extracted text from file annotations, not the model's answer. OCR incurs provider charges in addition to the completion; no local OCR installation or object storage is needed.
+- Encrypted/malformed PDFs do not trigger OCR. OCR failures or empty results produce review warnings without discarding the form answers. Blurry scans can still be misread; normalized extraction remains subject to human review. The system does not archive its own copy, so later access depends on the source host.
 
 Normalization validates identity, flexible facts and confidence/warnings. Missing email or an unreadable CV produces a warning. If a name cannot be identified, that row fails without fabricating identity. `needs_review` follows extraction/scoring warnings or validation failures, never a low score. No numeric confidence threshold is imposed yet; the normalization prompt requires warnings for uncertain extraction.
 
@@ -77,6 +78,7 @@ A failed rescore retains the previous score and breakdown and records an error f
 | GET `/programs/{id}/overview` | Processing counts |
 | GET `/programs/{id}/applications` | Search, status filter and sorting |
 | GET `/programs/{id}/applications/{application_id}` | Scoped application |
+| DELETE `/programs/{id}/applications/{application_id}` | Delete application and its scoring jobs; 204, or 409 while scoring runs |
 | GET `/programs/{id}/applications/{application_id}/detail` | Program plus application processing details |
 | GET/PUT `/programs/{id}/configuration` | Read/validate/save the single JSON configuration |
 | POST `/programs/{id}/configuration/rescore` | Queue evaluations; 202, or 409 without criteria |
@@ -87,6 +89,8 @@ A failed rescore retains the previous score and breakdown and records an error f
 | POST `/jobs/scoring/{program_id}/{application_id}` | Queue one application evaluation |
 
 Program filters: `search` (case/accent insensitive), `sort=updated|name|candidates`. Application filters: `search`, `status=all|received|processing|ready|needs_review|failed`, `sort=score|recent`. Unscored applications remain visible with null scores/ranks. Programs have no Open/Closed lifecycle.
+
+Application deletion is confirmed on the frontend detail page. It preserves the program/configuration and import history/checkpoint, including the original raw row. Pending scoring jobs are locked and removed along with completed/failed evaluations. Running scoring must finish before deletion; job cancellation is not implemented.
 
 ## Tests and demo data
 

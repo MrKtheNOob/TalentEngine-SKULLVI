@@ -14,7 +14,7 @@ export default function Imports() {
         <h1 className="text-3xl font-semibold tracking-tight">Imports</h1>
         <p className="mt-2 text-slate-500">Rassemblez vos candidatures à partir de vos exports CSV et JSON.</p>
       </header>
-      <div className="space-y-6">
+      <div className="appearance-group space-y-6">
         <FileImportForm programs={programs} loading={loading} error={error} onImport={imports.createImport} />
         <ImportJobsPanel jobs={imports.jobs} scoringJobs={imports.scoringJobs} programs={programs} loading={imports.loading} error={imports.error} />
       </div>

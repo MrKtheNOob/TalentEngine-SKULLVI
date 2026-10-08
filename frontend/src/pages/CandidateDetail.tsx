@@ -32,10 +32,10 @@ export default function CandidateDetail() {
     <>
       <CandidateProfileHeader application={application} program={program} normalized={processing.normalized_data} />
       <CandidateEvaluationSummary application={application} detail={detail} />
-      <div className="mt-5 grid items-start gap-5 lg:grid-cols-2">
-        <div className="space-y-5">
+      <div className="appearance-group mt-5 grid items-start gap-5 lg:grid-cols-2">
+        <div className="appearance-group space-y-5">
           <CandidateScoreBreakdown breakdown={detail.breakdown} />
-          <CandidateProcessingDetails application={application} detail={detail} />
+          <CandidateProcessingDetails application={application} detail={detail} normalized={processing.normalized_data} />
         </div>
         <CandidateApplicationDetails application={application} normalized={processing.normalized_data} />
       </div>

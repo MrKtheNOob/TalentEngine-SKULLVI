@@ -30,7 +30,7 @@ export default function Programs() {
 
       <DataStatus loading={loading} error={error} />
       {!loading && !error && <>
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+      <div className="appearance-group grid grid-cols-1 gap-4 md:grid-cols-2">
         {kpiData.map((kpi) => (
           <KPICard key={kpi.title} title={kpi.title} count={kpi.count} icon={kpi.icon} tone={kpi.tone} />
         ))}

@@ -16,9 +16,9 @@ Names, example.com email addresses, target specialties and availability answers 
 
 ## Limits and useful cases
 
-All six selected PDFs are image-based and produce zero text with the current pypdf reader. The import files use public HTTPS individual-file download URLs, not the whole dataset archive, signed storage URLs, local paths or inline résumé text. The actual CV reader was exercised against all six URLs: downloads succeeded, then each raised the expected unreadable/scanned-PDF error. These fixtures test remote downloading and the unreadable-CV review path, not successful extraction. Successful extraction from these PDFs would require OCR, which has not been added.
+All six selected PDFs are image-based and produce zero text with pypdf. The import files use public HTTPS individual-file download URLs, not the whole dataset archive, signed storage URLs, local paths or inline résumé text. Before OCR was added, all six downloads succeeded and text extraction raised the expected scanned-PDF error. They now exercise the OpenRouter OCR fallback. Live OCR results have not yet been verified; processing these fixtures incurs provider charges.
 
-Python-01 and React-02 have ambiguous availability. Skills, education and experience must come from the downloaded CV; the form deliberately contains no fallback résumé summary. Since extraction fails for these scanned files, the application should retain the form answers and report the CV review warning rather than invent qualifications. A separate text-based PDF sample is needed to test successful extraction and meaningful CV-based scoring.
+Python-01 and React-02 have ambiguous availability. Skills, education and experience must come from the downloaded CV; the form deliberately contains no fallback résumé summary. If OCR fails, the application should retain form answers and report the CV review warning rather than invent qualifications. Review extracted facts against the originals, especially for blurry text. A separate text-based PDF sample is useful to verify that native extraction skips paid OCR.
 
 ## Source mapping
 

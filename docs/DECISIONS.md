@@ -621,3 +621,34 @@ The MVP reviews applications within programs and does not need cross-program ide
 
 ### Consequences / limitations
 Migration 0004 copies existing linked candidate data before dropping candidates. Application IDs remain unchanged; old candidate-detail URLs are replaced. Reverting the merge requires a database backup. This supersedes earlier Candidate → Application relationship decisions.
+
+## D-028 — OCR fallback for scanned CVs
+
+### Context
+The selected Kaggle CVs contain images without a text layer. The user approved an OCR service and fallback.
+
+### Options considered
+Use only text PDFs, install local OCR tools, or use OpenRouter's Mistral OCR parser.
+
+### Decision
+Try pypdf first. For valid PDFs with no text, send downloaded bytes through OpenRouter's `mistral-ocr` file parser and feed extracted text to existing normalization.
+
+### Rationale
+Reuse the existing provider credentials and avoid deployment dependencies.
+
+### Consequences / limitations
+OCR adds provider charges and can misread blurry documents. Failed extraction remains a review warning. No new storage is introduced. This supersedes the no-OCR limitation in D-026.
+
+## D-029 — Confirm application deletion
+
+### Context
+The user requested application deletion with a confirmation popup while testing imports.
+
+### Decision
+Offer deletion on the application detail page through the existing Dialog component and a program-scoped DELETE endpoint.
+
+### Rationale
+Allow removing test or unwanted applications without clearing a whole program.
+
+### Consequences / limitations
+Deletion is permanent for the application and its scoring jobs; programs/configurations stay intact. Implementation retains import history and raw rows. A running evaluation blocks deletion until it finishes, avoiding an additional cancellation workflow.
