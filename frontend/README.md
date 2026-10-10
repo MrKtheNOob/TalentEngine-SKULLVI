@@ -5,7 +5,8 @@ React, TypeScript, Vite, Tailwind and Lucide. UI data access stays in hooks; Axi
 ## Run
 
 ```sh
-npm install
+cp .env.example .env
+npm ci
 npm run dev
 ```
 
@@ -13,9 +14,19 @@ Create `.env` from `.env.example` and set `VITE_API_URL=http://localhost:8000/ap
 
 Open the local frontend at `http://localhost:5173` and set backend `CORS_ORIGINS=http://localhost:5173` (comma-separated origins, without paths or trailing slashes). The backend explicitly permits credentialed requests from those origins. If `VITE_API_URL` is omitted, `/api` remains the fallback and Vite proxies it to `http://127.0.0.1:8000`.
 
-For direct Vercel-to-Render requests, set `VITE_API_URL=https://YOUR-API.onrender.com/api` on Vercel and `CORS_ORIGINS=https://YOUR-FRONTEND.vercel.app` on Render. CORS alone does not enable cross-site cookies: the current `SameSite=Lax` cookie needs a same-site proxy or a separate production cookie configuration (`SameSite=None; Secure`), subject to browser third-party cookie restrictions.
+For direct Vercel-to-Render requests, set `VITE_API_URL=https://YOUR-API.onrender.com/api` on Vercel and `CORS_ORIGINS=https://YOUR-FRONTEND.vercel.app` on Render. Set `COOKIE_SECURE=true` on Render to use `SameSite=None; Secure`; browser third-party cookie restrictions can still apply. Set Vercel Root Directory to `frontend`, build with `npm run build` and publish `dist`. `vercel.json` rewrites nested routes to `index.html`. See the root README for the full deployment setup.
+
+## Authentication
+
+`AuthProvider` wraps the router. `useAuth` exposes `user`, `loading`, `error`, `login` and `logout`; `authService` makes Axios calls and returns `Result` values. No JWT is read by JavaScript. The provider checks `/auth/me` on mount; `ProtectedRoute` waits for that check and redirects to `/login` for an absent user or verification error. A successful logout clears the user; a failed logout preserves the session and displays a sidebar error. Login errors keep the form on `/login`.
+
+A CORS/network error is also redirected to login and must be diagnosed separately. The guard does not replace backend authorization, and there is no global interceptor to handle session expiry during every subsequent API request.
 
 ## Pages
+
+- `/`: redirects to `/app`.
+- `/login`: login form.
+- `/app`: programs entry page, protected with all nested routes.
 
 - `/app/programs`: list/search/sort and create programs.
 - `/app/programs/:programId`: overview, applications and scoring configuration.
@@ -34,7 +45,7 @@ Configuration save offers save-only or save-and-rescore, plus a separate rescore
 
 Model services are `programService`, `programApplicationService`, `configurationService` and `jobService`. There are no interceptors or generic request wrappers. API response fields use snake_case; narrow hooks adapt display types. Configuration retains its existing camelCase JSON shape.
 
-Apply backend migration 0004 and configure the OpenRouter model/key before using processing. Mock fixtures are not used as replacements for live data. Original import files are not archived; original remote CV links remain available subject to their source host.
+Apply all backend migrations, including the users table, and configure the OpenRouter model/key before using processing. Mock fixtures are not used as replacements for live data. Original import files are not archived; original remote CV links remain available subject to their source host.
 
 ## Checks
 

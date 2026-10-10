@@ -6,7 +6,8 @@ FastAPI, async SQLAlchemy/PostgreSQL, and the OpenAI SDK pointed at OpenRouter. 
 
 ```sh
 uv sync
-# Set DATABASE_URL, OPENROUTER_API_KEY and OPENROUTER_MODEL in .env.
+# Set DATABASE_URL, OPENROUTER_API_KEY, OPENROUTER_MODEL and CORS_ORIGINS in .env.
+# Export JWT_SECRET before starting the API (currently read at module import).
 uv run alembic upgrade head
 uv run uvicorn main:app --reload
 ```
@@ -14,6 +15,14 @@ uv run uvicorn main:app --reload
 PostgreSQL connectivity is checked on startup. The API does not create or migrate tables automatically. Missing LLM settings leave reads and program editing available, but import/scoring submissions return 503.
 
 Migration `0004` copies existing candidate identity/contact into applications, preserves application IDs, removes the candidates table and stored rank, and adds processing data plus job tables. This consolidation has no automatic downgrade: use a backup to restore the former schema.
+
+## Authentication and deployment
+
+All routes require a valid `access_token` cookie except POST `/api/auth/login`, POST `/api/auth/logout` and CORS preflights. GET `/api/auth/me` returns the current user. Login sets a 30-minute JWT in an HttpOnly cookie; logout expires that cookie. Swagger is also protected. Each middleware lookup and endpoint service uses its own database session.
+
+`CORS_ORIGINS` is a comma-separated list of exact frontend origins, without paths/trailing slashes. `COOKIE_SECURE=false` uses a local HTTP cookie with SameSite=Lax; `true` uses Secure and SameSite=None for cross-site HTTPS deployment. Credentialed CORS is enabled. `JWT_SECRET` is currently read before config loads dotenv, so export it before startup or configure it directly on Render. The fallback signing key is not suitable for deployment. Logout does not revoke copied JWTs; no roles, password recovery, dedicated CSRF protection or token revocation store is implemented.
+
+See the root [README](../README.md#authentification-et-déploiement) for Render/Vercel commands and variables. Deployment is reported working by the project owner; hosted worker restart recovery remains unverified.
 
 ## Application and jobs
 
@@ -105,6 +114,6 @@ Pytest and pytest-asyncio are development dependencies installed by `uv sync`. A
 
 Seed creates four fictional programs and seven applications, matching by program/email on reruns. Existing data is not overwritten. Seed applications have no fabricated extraction or score; scoring requires normalization data from an import. `docs/examples/import.json` is a small fictional input example.
 
-Seed also creates the demo account `admin@example.com` (username `admin`) with a randomly generated password, printed once after creation. Save that password: the database stores only its bcrypt hash. Rerunning the seeder preserves existing accounts and passwords. No credential environment variables are needed; `.env` still supplies the database connection. Apply migrations with `uv run alembic upgrade head` before seeding.
+Seed also creates the demo account `admin@example.com` (username `admin`) using the fixed demo password currently defined in `seed.py`, stored as a bcrypt hash. Rerunning preserves existing accounts/passwords. No credential environment variables are needed. The current console output can display an application email instead of the account email; use the account defined in the script. This is a local/demo account, not production provisioning. Apply `uv run alembic upgrade head` before seeding; do not run the seeder automatically on service startup.
 
 `shared/llm_service.py` uses [OpenRouter's SDK-compatible endpoint](https://openrouter.ai/docs/quickstart). Select an OpenRouter model through the environment; no default model is chosen. The LLM service uses a 60-second timeout, rejects empty/incomplete completions, and leaves JSON validation to the processing schemas.
