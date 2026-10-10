@@ -90,7 +90,7 @@ class JobWorker:
 
     async def process_import(self, job_id: int):
         async with self.database.sessions() as db:
-            job = await db.get(ImportJob, job_id)
+            job:ImportJob = await db.get(ImportJob, job_id)
             program = await db.get(Program, job.program_id)
             context = {"name": program.name, "description": program.description}
             rows, start = job.raw_rows, job.next_row
@@ -110,7 +110,7 @@ class JobWorker:
                     db.add(application)
                     await db.flush()
                     # New applications use the current configuration at enqueue time.
-                    program = await db.get(Program, job.program_id, populate_existing=True)
+                    program:Program= await db.get(Program, job.program_id, populate_existing=True)
                     configuration = deepcopy(program.configuration or {})
                     if job.auto_score and configuration.get("criteria"):
                         db.add(ScoringJob(
@@ -134,8 +134,8 @@ class JobWorker:
 
     async def process_scoring(self, job_id: int):
         async with self.database.sessions() as db:
-            job = await db.get(ScoringJob, job_id)
-            application = await db.get(ProgramApplication, job.application_id)
+            job:ScoringJob = await db.get(ScoringJob, job_id)
+            application:ProgramApplication = await db.get(ProgramApplication, job.application_id)
             normalized = {
                 "name": application.name, "facts": application.normalized_data,
                 "metadata": application.normalization_metadata,

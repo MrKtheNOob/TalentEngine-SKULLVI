@@ -97,7 +97,7 @@ Chaque ligne traitée avec succès est enregistrée immédiatement. Les erreurs 
 
 ## Vérifications
 
-Depuis `backend/` : `uv run python -m unittest discover -s tests -v`.
+Depuis `backend/` : `uv run pytest` (ou `uv run pytest -v` pour le détail).
 
 Depuis `frontend/` : `npm run build`, `npm run lint` et `node --test tests/*.test.cjs`.
 

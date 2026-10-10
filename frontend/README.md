@@ -9,7 +9,11 @@ npm install
 npm run dev
 ```
 
-The Axios client defaults to `/api`. Vite proxies that prefix to `http://127.0.0.1:8000` without rewriting it. Production needs a reverse proxy or `VITE_API_URL` pointing to the backend; a different origin also needs backend CORS configuration.
+Create `.env` from `.env.example` and set `VITE_API_URL=http://localhost:8000/api`. Axios reads that value and sends cookies with `withCredentials: true`. Restart Vite after editing environment variables; production values are embedded at build time. `VITE_*` values are public and must not contain secrets.
+
+Open the local frontend at `http://localhost:5173` and set backend `CORS_ORIGINS=http://localhost:5173` (comma-separated origins, without paths or trailing slashes). The backend explicitly permits credentialed requests from those origins. If `VITE_API_URL` is omitted, `/api` remains the fallback and Vite proxies it to `http://127.0.0.1:8000`.
+
+For direct Vercel-to-Render requests, set `VITE_API_URL=https://YOUR-API.onrender.com/api` on Vercel and `CORS_ORIGINS=https://YOUR-FRONTEND.vercel.app` on Render. CORS alone does not enable cross-site cookies: the current `SameSite=Lax` cookie needs a same-site proxy or a separate production cookie configuration (`SameSite=None; Secure`), subject to browser third-party cookie restrictions.
 
 ## Pages
 

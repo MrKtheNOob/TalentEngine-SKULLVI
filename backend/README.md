@@ -95,12 +95,16 @@ Application deletion is confirmed on the frontend detail page. It preserves the 
 ## Tests and demo data
 
 ```sh
-uv run python -m unittest discover -s tests -v
+uv run pytest
 uv run python seed.py
 ```
 
 Tests exercise SQL queries, upload endpoints, checkpoints/recovery, row failures, CV handling, strict score validation, weighted arithmetic and configuration snapshots. LLM calls and CV download content are mocked: tests incur no provider charges.
 
+Pytest and pytest-asyncio are development dependencies installed by `uv sync`. Async tests run automatically. Shared fixtures in `tests/conftest.py` create and clean up an isolated SQLite database per test; they never connect to the development PostgreSQL database. Run one module with `uv run pytest tests/test_jobs.py`, or select a behavior with `uv run pytest -k scoring`. Standard-library `unittest.mock` is retained for mocks; test cases and assertions use pytest.
+
 Seed creates four fictional programs and seven applications, matching by program/email on reruns. Existing data is not overwritten. Seed applications have no fabricated extraction or score; scoring requires normalization data from an import. `docs/examples/import.json` is a small fictional input example.
+
+Seed also creates the demo account `admin@example.com` (username `admin`) with a randomly generated password, printed once after creation. Save that password: the database stores only its bcrypt hash. Rerunning the seeder preserves existing accounts and passwords. No credential environment variables are needed; `.env` still supplies the database connection. Apply migrations with `uv run alembic upgrade head` before seeding.
 
 `shared/llm_service.py` uses [OpenRouter's SDK-compatible endpoint](https://openrouter.ai/docs/quickstart). Select an OpenRouter model through the environment; no default model is chosen. The LLM service uses a 60-second timeout, rejects empty/incomplete completions, and leaves JSON validation to the processing schemas.

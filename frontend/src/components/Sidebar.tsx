@@ -1,5 +1,6 @@
 import { Layers, Upload } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
+import SidebarUser from "./SidebarUser";
 
 export default function Sidebar() {
   const { pathname } = useLocation();
@@ -34,6 +35,9 @@ export default function Sidebar() {
           ))}
         </ul>
       </nav>
+      <div className="mt-auto border-t border-slate-800 px-3 py-5 sm:px-6">
+        <SidebarUser />
+      </div>
     </aside>
   )
 }
