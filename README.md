@@ -8,7 +8,7 @@ Backend : Python, FastAPI, PostgreSQL et SQLAlchemy. Frontend : React, TypeScrip
 
 Le frontend est déployé sur Vercel et l’API sur Render ; le déploiement fonctionne selon la vérification du porteur du projet.
 
-- Frontend : **URL Vercel à renseigner avant la remise**.
+- Frontend : https://talent-engine-alpha.vercel.app.
 - API : https://talentengine-skullvi.onrender.com
 - Les identifiants du compte de démonstration sont transmis séparément aux évaluateurs.
 
